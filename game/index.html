@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="ml">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nammude Naadu — നമ്മുടെ നാട്</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Malayalam:wght@400;600&family=Noto+Serif+Malayalam:wght@600;800&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root { --ink:#f5efe3; --panel:rgba(18,22,16,.78); --line:rgba(255,240,210,.18); --accent:#e8b65a; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:#000; overflow:hidden; font-family: Inter, 'Noto Sans Malayalam', system-ui, sans-serif; color:var(--ink); }
+  canvas { display:block; width:100vw; height:100vh; image-rendering:auto; }
+  .hud { position:fixed; pointer-events:none; }
+  #obj { top:16px; left:16px; min-width:220px; max-width:300px; font-size:12.5px !important; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; font-size:13px; display:none; backdrop-filter: blur(4px); }
+  #obj, #status { transition: opacity .35s; }
+  #obj.ghost, #status.ghost { opacity:.12 !important; }
+  #obj .donecount { font-size:11px; color:#a8e08a; margin-bottom:4px; }
+  #obj h3 { margin:0 0 8px; font-size:12px; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); font-weight:600; }
+  #obj .it { display:flex; gap:8px; align-items:flex-start; padding:2px 0; line-height:1.35; }
+  #obj .it .bx { width:13px; height:13px; border:1.5px solid #cbbf9f; border-radius:3px; flex:none; margin-top:2px; }
+  #obj .it.done { opacity:.5; text-decoration:line-through; }
+  #obj .it.done .bx { background:var(--accent); border-color:var(--accent); }
+  #obj .opt { margin-top:6px; font-size:12px; color:#cbbf9f; }
+  #status { top:16px; right:16px; text-align:right; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:10px 14px; font-size:13px; display:none; }
+  #status .ch { color:var(--accent); font-size:11px; letter-spacing:.1em; text-transform:uppercase; }
+  #status .big { font-size:16px; font-weight:600; margin-top:2px; }
+  #inv { bottom:16px; left:50%; transform:translateX(-50%); display:none; gap:6px; flex-wrap:wrap; justify-content:center; max-width:80vw; }
+  #inv .chip { background:var(--panel); border:1px solid var(--line); border-radius:999px; padding:5px 11px; font-size:12px; }
+  #prompt { bottom:70px; left:50%; transform:translateX(-50%); background:rgba(0,0,0,.6); border:1px solid var(--line); padding:6px 12px; border-radius:8px; font-size:14px; display:none; }
+  #prompt kbd { background:var(--accent); color:#222; border-radius:4px; padding:1px 7px; font-weight:700; margin-right:6px; font-family:Inter; }
+  #sub { bottom:110px; left:50%; transform:translateX(-50%); width:min(820px, 92vw); background:rgba(10,10,8,.82); border:1px solid var(--line); border-radius:12px; padding:14px 18px 12px; display:none; text-align:center; }
+  #sub .who { font-size:12px; letter-spacing:.12em; text-transform:uppercase; font-weight:600; margin-bottom:6px; }
+  #sub .ml { font-family:'Noto Sans Malayalam', sans-serif; font-size:20px; line-height:1.5; }
+  #sub .en { font-size:15px; color:#d8cfbb; margin-top:4px; font-style:italic; }
+  #sub .hint { position:absolute; right:12px; bottom:6px; font-size:10px; color:#8f866f; }
+  #hold { bottom:150px; left:50%; transform:translateX(-50%); width:260px; display:none; text-align:center; font-size:13px; }
+  #hold .bar { margin-top:6px; height:8px; border-radius:6px; background:rgba(255,255,255,.15); overflow:hidden; }
+  #hold .fill { height:100%; width:0; background:var(--accent); }
+  #toast { top:90px; left:50%; transform:translateX(-50%); display:flex; flex-direction:column; gap:6px; align-items:center; }
+  #toast div { background:var(--panel); border:1px solid var(--line); padding:6px 14px; border-radius:999px; font-size:13px; animation: tin 2.6s forwards; }
+  @keyframes tin { 0%{opacity:0; transform:translateY(-6px)} 10%{opacity:1; transform:none} 80%{opacity:1} 100%{opacity:0} }
+  #fade { inset:0; background:#000; opacity:1; transition:opacity 1s; }
+  #card { inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; opacity:0; transition:opacity 1.4s; }
+  #card .k { font-size:12px; letter-spacing:.3em; text-transform:uppercase; color:var(--accent); }
+  #card .t { font-family:'Noto Serif Malayalam', serif; font-weight:800; font-size:clamp(36px, 7vw, 84px); margin:10px 0 4px; letter-spacing:.02em; }
+  #card .s { font-size:16px; color:#cfc4aa; font-style:italic; }
+  #card .m { font-family:'Noto Serif Malayalam', serif; font-size:22px; color:#e9d9b3; margin-top:6px; }
+  #title { position:fixed; inset:0; display:flex; flex-direction:column; align-items:center; justify-content:center; background:#0b0f0a; z-index:50; text-align:center; overflow:hidden; }
+  #title h1, #title .ml, #title .tag { text-shadow:0 3px 24px rgba(0,0,0,.7); }
+  #title .btns button { backdrop-filter: blur(6px); background:rgba(10,14,10,.45); display:flex; flex-direction:column; align-items:center; gap:2px; min-width:300px; }
+  #title .btns button.primary { background:rgba(232,182,90,.9); color:#1c1408; border-color:#e8b65a; font-weight:600; }
+  #title .btns button.primary .bsub { color:#3a2a10; }
+  #title .btns button.back { min-width:140px; opacity:.85; }
+  #title .btns button.locked { opacity:.45; cursor:not-allowed; }
+  #title .bsub { font-size:11.5px; color:#d8cfbb; font-weight:400; }
+  #title .bml { font-family:'Noto Sans Malayalam',sans-serif; font-size:12px; color:#e8b65a; }
+  #title .menuh { font-size:12px; letter-spacing:.3em; text-transform:uppercase; color:#e8b65a; margin-bottom:4px; text-shadow:0 2px 8px #000; }
+  #title .setbox, #title .credits { background:rgba(10,14,10,.6); backdrop-filter:blur(6px); border:1px solid rgba(255,240,210,.25); border-radius:14px; padding:14px 18px; min-width:320px; font-size:13px; line-height:1.9; text-align:left; }
+  #title .setbox label { display:flex; justify-content:space-between; align-items:center; gap:14px; }
+  #title .setbox select { background:#222; color:#f5efe3; border:1px solid rgba(255,240,210,.3); border-radius:6px; padding:2px 6px; font-family:inherit; }
+  #title .setbox input { accent-color:#e8b65a; }
+  #title h1 { font-family:'Noto Serif Malayalam', serif; font-size:clamp(40px, 8vw, 96px); margin:0; font-weight:800; }
+  #title .ml { font-family:'Noto Serif Malayalam', serif; font-size:clamp(24px,4vw,42px); color:var(--accent); margin-top:4px; }
+  #title .tag { margin-top:14px; color:#cfc4aa; font-style:italic; max-width:560px; line-height:1.5; padding:0 20px; }
+  #title .btns { margin-top:28px; max-height:56vh; overflow-y:auto; padding:4px; display:flex; flex-direction:column; gap:10px; align-items:center; }
+  #title button { pointer-events:auto; background:transparent; color:var(--ink); border:1px solid rgba(255,240,210,.35); padding:10px 26px; border-radius:999px; font-size:15px; cursor:pointer; min-width:240px; font-family:inherit; }
+  #title button:hover { background:rgba(232,182,90,.15); border-color:var(--accent); }
+  #title .keys { margin-top:28px; font-size:12px; color:#8f866f; line-height:1.8; }
+  #panel { top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(14,16,12,.94); border:1px solid var(--line); border-radius:14px; padding:18px 22px; min-width:360px; display:none; pointer-events:auto; }
+  #panel h2 { margin:0 0 10px; font-size:14px; letter-spacing:.14em; text-transform:uppercase; color:var(--accent); }
+  #panel .rec { border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin:8px 0; }
+  #panel .rec.locked { opacity:.4; }
+  #panel .rec b { font-size:15px; }
+  #panel .rec .mat { font-size:12px; color:#cbbf9f; margin-top:4px; }
+  #panel .rec .mat .ok { color:#a8e08a; } #panel .rec .mat .no { color:#e09a8a; }
+  #panel .foot { font-size:11px; color:#8f866f; margin-top:10px; }
+  .pbtn { pointer-events:auto; flex:1; background:transparent; color:var(--ink); border:1px solid rgba(255,240,210,.35); padding:8px 14px; border-radius:999px; font-size:13px; cursor:pointer; font-family:inherit; }
+  .pbtn:hover { background:rgba(232,182,90,.15); border-color:var(--accent); }
+  #panel select, #panel input { accent-color:#e8b65a; }
+  #panel select { background:#222; color:#f5efe3; border:1px solid var(--line); border-radius:6px; padding:3px 6px; font-family:inherit; }
+  .lb { left:0; right:0; height:0; background:#000; transition:height .9s ease; z-index:20; }
+  #cap { left:50%; bottom:15vh; transform:translateX(-50%); text-align:center; opacity:0; transition:opacity .7s; z-index:21; font-family:'Noto Serif Malayalam', Georgia, serif; font-size:clamp(16px,2.2vw,24px); color:#f3e9d2; text-shadow:0 2px 12px #000; max-width:80vw; }
+  #cap .cs { font-family:Inter, sans-serif; font-size:13px; letter-spacing:.2em; text-transform:uppercase; color:#e8b65a; margin-top:6px; }
+  #np { right:16px; bottom:16px; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:8px 12px; font-size:12px; opacity:0; transition:opacity 1s; z-index:22; max-width:300px; pointer-events:none; }
+  #np .k { color:var(--accent); font-size:10px; letter-spacing:.14em; text-transform:uppercase; }
+  #ytwrap { position:absolute; width:1px; height:1px; overflow:hidden; opacity:0.01; left:0; top:0; }
+  #np.yt { width:200px; box-sizing:content-box; background:linear-gradient(#6b4428,#4a2c18); border-color:#8a5c36; border-radius:14px; padding:9px; pointer-events:auto; }
+  #np.yt #ytwrap { position:static; width:200px; height:200px; opacity:1; border-radius:8px; margin-top:7px; background:#000; }
+  #np.yt .k { color:#ffd58a; }
+  #pauseBtn { position:fixed; top:16px; left:50%; transform:translateX(-50%); z-index:15; background:var(--panel); color:var(--ink); border:1px solid var(--line); border-radius:999px; width:34px; height:34px; font-size:11px; cursor:pointer; display:none; }
+  #pauseBtn:hover { border-color:var(--accent); }
+  #tbg { position:absolute; inset:0; width:100%; height:100%; z-index:-1; }
+  #mini { inset:0; display:none; align-items:center; justify-content:center; }
+  #mini canvas { width:auto; height:auto; border-radius:14px; border:1px solid var(--line); box-shadow:0 10px 60px rgba(0,0,0,.6); }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="lbTop" class="hud lb" style="top:0"></div><div id="lbBot" class="hud lb" style="bottom:0"></div>
+<div id="cap" class="hud"></div>
+<div id="np" class="hud"><div class="k">♪ From the temple</div><div class="t"></div><div id="ytwrap"><div id="ytp"></div></div></div>
+<button id="pauseBtn" title="Pause (Esc)">❚❚</button>
+<div id="obj" class="hud"></div>
+<div id="status" class="hud"></div>
+<div id="inv" class="hud" style="display:none"></div>
+<div id="prompt" class="hud"></div>
+<div id="hold" class="hud"><div class="lbl"></div><div class="bar"><div class="fill"></div></div></div>
+<div id="sub" class="hud"><div class="who"></div><div class="ml"></div><div class="en"></div><div class="hint">E / Space — skip</div></div>
+<div id="toast" class="hud"></div>
+<div id="panel" class="hud"></div>
+<div id="mini" class="hud"><canvas id="mc" width="560" height="360"></canvas></div>
+<div id="fade" class="hud"></div>
+<div id="card" class="hud"><div class="k"></div><div class="t"></div><div class="m"></div><div class="s"></div></div>
+
+<div id="title">
+  <canvas id="tbg"></canvas>
+  <h1>NAMMUDE NAADU</h1>
+  <div class="ml">നമ്മുടെ നാട്</div>
+  <div class="tag">The Things We Left Behind.<br>Every house has a story. Every village has a secret.</div>
+  <div class="btns" id="btns"></div>
+  <div class="keys">WASD / Arrows — walk &nbsp;·&nbsp; Shift — run &nbsp;·&nbsp; E / Space — interact &nbsp;·&nbsp; C — craft &nbsp;·&nbsp; F — flashlight &nbsp;·&nbsp; V — scooter &nbsp;·&nbsp; Esc — pause &amp; settings<br>Voices in Malayalam with English subtitles. Headphones recommended.</div>
+</div>
+
+<script src="js/lines.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/engine.js"></script>
+<script src="js/art.js"></script>
+<script src="js/world.js"></script>
+<script src="js/music.js"></script>
+<script src="js/cine.js"></script>
+<script src="js/story.js"></script>
+<script src="js/ch4.js"></script>
+<script src="js/ch5.js"></script>
+<script src="js/soundscape.js"></script>
+<script src="js/polish.js"></script>
+</body>
+</html>

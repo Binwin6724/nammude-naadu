@@ -1,0 +1,6 @@
+.env
+.env.*
+backup/
+.claude/
+.DS_Store
+tools/voice-check.json
