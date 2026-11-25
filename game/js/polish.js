@@ -1,7 +1,7 @@
 // ===== Nammude Naadu — polish: objective marker, pause menu & settings, footsteps =====
 
 // ---------- Settings ----------
-G.settings = Object.assign({ voice: 1, amb: 0.9, music: 0.6, subs: 'both', marker: true }, JSON.parse(localStorage.getItem('nn_settings') || '{}'));
+G.settings = Object.assign({ voice: 1, amb: 0.9, music: 0.6, subs: 'both', marker: true }, (() => { try { return JSON.parse(localStorage.getItem('nn_settings') || '{}') || {}; } catch (e) { return {}; } })());
 function saveSettings() { localStorage.setItem('nn_settings', JSON.stringify(G.settings)); AudioSys.setVolumes(G.settings.voice, G.settings.amb, G.settings.music); try { if ($('np').dataset.song === '1' && ytPlayer && ytPlayer.setVolume) ytPlayer.setVolume(SONG.volume * G.settings.music / 0.6); } catch (e) { } }
 
 // ---------- Objective targets (map, tile x, tile y) ----------
@@ -51,6 +51,7 @@ function targetFor(id) {
     case 'eggs': return V(30.6, 16.4);
     case 'findHen': { const r = G.hens.find(h => h.red); return r ? V(r.x / T, r.y / T) : null; }
     case 'lureHen': return V(30.5, 18.5);
+    case 'flowers': return ['church', 10.1, 9.9];
     case 'key': return V(15.6, 16.9);
     case 'bamboo': case 'stake': return has('knife') ? V(59.9, 46.9) : V(14, 16.2);
     case 'hook': return V(kun.x / T, kun.y / T);
@@ -139,11 +140,11 @@ function onStep() {
 }
 
 // ---------- Pause menu ----------
+const miniOpen = () => $('mini').style.display === 'flex';
 function openPause() {
-  if (G.locked || !G.running) return;
-  G.locked++;
-  const keepRate = G.timeRate; G.timeRate = 0;
-  const el = $('panel'); el.style.display = 'block';
+  if (!G.running || G.paused || miniOpen() || $('panel').style.display === 'block') return;
+  G.paused = true; document.body.classList.add('paused'); AudioSys.holdVoice(true); for (const k in keys) keys[k] = false;
+  const el = $('panel'); el.style.display = 'block'; $('pauseBtn').style.display = 'none';
   const row = (label, inner) => `<div class="rec" style="display:flex;justify-content:space-between;align-items:center;gap:16px"><b style="font-size:13px">${label}</b>${inner}</div>`;
   el.innerHTML = `<h2>Paused</h2>
     ${row('Voices', `<input id="sv" type="range" min="0" max="1" step="0.05" value="${G.settings.voice}">`)}
@@ -153,7 +154,7 @@ function openPause() {
     ${row('Subtitles', `<select id="ss"><option value="both">Malayalam + English</option><option value="en">English only</option><option value="ml">Malayalam only</option><option value="off">Off</option></select>`)}
     ${row('Objective marker', `<input id="sm" type="checkbox" ${G.settings.marker ? 'checked' : ''}>`)}
     <div style="display:flex;gap:8px;margin-top:12px"><button id="pr" class="pbtn">Resume (Esc)</button><button id="pt" class="pbtn">Quit to title</button></div>
-    <div class="foot">Progress is saved at the start of each chapter.</div>`;
+    <div class="foot">Progress is saved at the start of each chapter and at checkpoints along the way. Quitting returns you to the last one.</div>`;
   $('sr').value = Radio.dbg().st; $('sr').onchange = e => Radio.set(+e.target.value);
   $('ss').value = G.settings.subs;
   $('sv').oninput = e => { G.settings.voice = +e.target.value; saveSettings(); };
@@ -161,11 +162,16 @@ function openPause() {
   $('sx').oninput = e => { G.settings.music = +e.target.value; saveSettings(); };
   $('ss').onchange = e => { G.settings.subs = e.target.value; saveSettings(); };
   $('sm').onchange = e => { G.settings.marker = e.target.checked; saveSettings(); };
-  const close = () => { keyListeners.delete(l); el.style.display = 'none'; G.timeRate = keepRate; setTimeout(() => G.locked--, 0); };
-  const l = k => { if (k === 'escape' || k === 'p') close(); };
-  keyListeners.add(l);
+  const close = () => { G.pauseKey = null; el.style.display = 'none'; G.paused = false; document.body.classList.remove('paused'); AudioSys.holdVoice(false); if (G.running) $('pauseBtn').style.display = 'block'; };
+  G.pauseKey = k => { if (k === 'escape' || k === 'p') close(); };
   $('pr').onclick = close;
-  $('pt').onclick = async () => { close(); G.running = false; hud(false); AudioSys.stopVoice(); Music.set(null); letterbox(false); resetWorld(); AudioSys.setRain(0); AudioSys.setHum(0); AudioSys.setAircraft(0); AudioSys.setAmbience({ night: false, birds: false, frogs: false }); await fadeOut(400); showTitle(); };
+  $('pt').onclick = async () => {
+    close(); G.run++; keyListeners.clear(); G.running = false; G.locked = 0; $('mini').style.display = 'none'; hud(false); hideSub(); $('hold').style.display = 'none'; AudioSys.stopVoice(); AudioSys.radioStop && AudioSys.radioStop(); Music.set(null); letterbox(false); resetWorld();
+    if (typeof Radio !== 'undefined') Radio.hush(); try { if (ytPlayer && ytPlayer.stopVideo) ytPlayer.stopVideo(); } catch (e) { } $('np').style.opacity = 0; $('np').dataset.song = ''; $('np').classList.remove('yt');
+    $('cap').style.opacity = 0; $('card').style.opacity = 0; if (typeof setHiss === 'function') setHiss(0);
+    AudioSys.setRain(0); AudioSys.setHum(0); AudioSys.setAircraft(0); AudioSys.setAmbience({ night: false, birds: false, frogs: false }); await fadeOut(400); showTitle();
+  };
 }
 saveSettings();
+rememberHomes();
 $('pauseBtn').onclick = () => openPause();

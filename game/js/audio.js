@@ -51,7 +51,7 @@ const AudioSys = (() => {
   function impulse(s) { const n = ctx.sampleRate * s, b = ctx.createBuffer(2, n, ctx.sampleRate); for (let c = 0; c < 2; c++) { const d = b.getChannelData(c); let lp = 0; for (let i = 0; i < n; i++) { lp = lp * 0.6 + (Math.random() * 2 - 1) * 0.4; d[i] = lp * Math.pow(1 - i / n, 3); } } return b; }
   function loopNoise() { const s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(); return s; }
   function drone(f) { const lp = ctx.createBiquadFilter(); lp.type = 'lowpass'; lp.frequency.value = f; lp.Q.value = -3; const g = ctx.createGain(); g.gain.value = 0; loopNoise().connect(lp); lp.connect(g); g.connect(ambBus); return g; }
-  function ramp(g, v, t = 1) { if (ctx) g.gain.setTargetAtTime(v, ctx.currentTime, Math.max(0.01, t / 3)); }
+  function ramp(g, v, t = 1) { if (ctx && isFinite(v)) g.gain.setTargetAtTime(v, ctx.currentTime, Math.max(0.01, t / 3)); }
   function applyVolumes() { if (!ctx) return; ramp(sfxBus, aVol, 0.1); ramp(voiceBus, vVol, 0.1); ramp(ambVol, aVol * duck, 0.4); ramp(musicVol, mVol * 1.5 * duck * musicDuck, 0.8); ramp(radioBus, aVol * duck, 0.4); }
   function setDuck(on) { duck = on ? 0.5 : 1; applyVolumes(); }
 
@@ -71,8 +71,8 @@ const AudioSys = (() => {
   }
   // turn a recording into a seamless loop by folding its tail into its head
   function makeLoop(b, x = 0.8) {
-    const n = Math.floor(Math.min(x, b.duration / 4) * b.sampleRate), L = b.length - n, o = ctx.createBuffer(b.numberOfChannels, L, b.sampleRate);
-    for (let c = 0; c < b.numberOfChannels; c++) { const s = b.getChannelData(c), d = o.getChannelData(c); for (let i = 0; i < L; i++) d[i] = s[i]; for (let i = 0; i < n; i++) { const k = i / n; d[i] = s[i] * Math.sqrt(k) + s[L + i] * Math.sqrt(1 - k); } }
+    const n = Math.floor(Math.min(x, b.duration / 4) * b.sampleRate), L = b.length - n, ch = matchMedia('(pointer: coarse)').matches ? 1 : b.numberOfChannels, o = ctx.createBuffer(ch, L, b.sampleRate); // phones keep one channel, half the memory
+    for (let c = 0; c < ch; c++) { const s = b.getChannelData(c), d = o.getChannelData(c); for (let i = 0; i < L; i++) d[i] = s[i]; for (let i = 0; i < n; i++) { const k = i / n; d[i] = s[i] * Math.sqrt(k) + s[L + i] * Math.sqrt(1 - k); } }
     return o;
   }
   const loopCache = {};
@@ -139,7 +139,8 @@ const AudioSys = (() => {
       if (style === 'tape') { // an old cassette through a small speaker
         const h = ctx.createBiquadFilter(), l = ctx.createBiquadFilter(), ws = ctx.createWaveShaper(), o = ctx.createGain(); h.type = 'highpass'; h.frequency.value = 340; l.type = 'lowpass'; l.frequency.value = 2900; const c = new Float32Array(1025); for (let i = 0; i < 1025; i++) { const x = i / 512 - 1; c[i] = Math.tanh(x * 1.7) / Math.tanh(1.7); } ws.curve = c; o.gain.value = 1.15;
         const wow = ctx.createOscillator(), wg = ctx.createGain(); wow.frequency.value = 0.9; wg.gain.value = 7; wow.connect(wg); wg.connect(s.detune); wow.start(); g.connect(h); h.connect(l); l.connect(ws); ws.connect(o); o.connect(voiceBus); s.addEventListener('ended', () => { try { wow.stop(); } catch (e) { } });
-      } else g.connect(voiceBus);
+      } else if (style === 'phone') { const h = ctx.createBiquadFilter(), l = ctx.createBiquadFilter(), o = ctx.createGain(); h.type = 'highpass'; h.frequency.value = 420; l.type = 'lowpass'; l.frequency.value = 3300; o.gain.value = 1.25; g.connect(h); h.connect(l); l.connect(o); o.connect(voiceBus); }
+      else g.connect(voiceBus);
       vNow = { s, g, res }; setDuck(true); s.onended = () => { if (vNow && vNow.s === s) { vNow = null; setDuck(false); } res(); }; s.start();
       setTimeout(() => { if (ctx.state !== 'running' && !document.hidden) res(); }, L.b.duration * 1000 + 800); // sound blocked: never leave a scene stuck
     });
@@ -147,7 +148,7 @@ const AudioSys = (() => {
 
   return {
     init, sfx, voice, stopVoice, play, live, getLoop, measure, ramp, db, preload: ids => { if (ctx) ids.forEach(id => voiceBuf(id).catch(() => vCache.delete(id))); },
-    music() { }, speaking: () => !!vNow,
+    music() { }, speaking: () => !!vNow, holdVoice: on => { if (vNow) vNow.s.playbackRate.value = on ? 0 : 1; },
     setRain(v) { amb.rain = v; }, setHum(v) { if (ctx) ramp(hum, v * 0.16, 2); }, setAircraft(v) { if (ctx) ramp(air, v * 0.13, 3); }, setAmbience(o) { Object.assign(amb, o); }, flags: amb,
     setReverb(v) { if (ctx) ramp(revGain, v, 1); }, setMusicDuck(v) { if (Math.abs(v - musicDuck) < 0.02) return; musicDuck = v; applyVolumes(); },
     setVolumes(v, a, mu) { vVol = v; aVol = a; if (mu !== undefined) mVol = mu; applyVolumes(); },

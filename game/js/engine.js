@@ -2,19 +2,24 @@
 const T = 32;
 const $ = id => document.getElementById(id);
 const cv = $('c'), cx = cv.getContext('2d');
-let VW = 0, VH = 0, SCALE = 1, DPR = 1;
+let VW = 0, VH = 0, SCALE = 1, DPR = 1, BASE = 1, ZOOM = 1;
 const lightCv = document.createElement('canvas'), lx = lightCv.getContext('2d');
 
 function resize() {
-  DPR = window.devicePixelRatio || 1;
-  cv.width = innerWidth * DPR; cv.height = innerHeight * DPR;
+  DPR = Math.min(2, window.devicePixelRatio || 1); // more than 2x costs a lot and nobody can see it
+  cv.width = Math.max(2, Math.round(innerWidth * DPR)); cv.height = Math.max(2, Math.round(innerHeight * DPR));
   lightCv.width = cv.width; lightCv.height = cv.height;
-  SCALE = Math.max(1.3, Math.min(2.3, innerHeight / 460)) * DPR;
-  VW = cv.width / SCALE; VH = cv.height / SCALE;
+  BASE = Math.max(1.3, Math.min(2.3, innerHeight / 460)) * DPR; applyZoom();
 }
+function applyZoom() { SCALE = BASE * ZOOM; VW = cv.width / SCALE; VH = cv.height / SCALE; }
 addEventListener('resize', resize); resize();
 
-const sleep = ms => new Promise(r => setTimeout(r, ms));
+// Story timers run on the game clock: they stop while the game is paused or the tab is hidden, and they die when the
+// player quits a chapter (G.run changes), so an abandoned chapter can never carry on behind the title screen.
+const sleepers = [];
+const sleep = ms => new Promise(r => sleepers.push({ left: ms, r, run: G.run }));
+function tickSleepers(ms) { if (!sleepers.length) return; const due = []; for (let i = sleepers.length - 1; i >= 0; i--) { const s = sleepers[i]; if (s.run !== G.run) sleepers.splice(i, 1); else if ((s.left -= ms) <= 0) { sleepers.splice(i, 1); due.unshift(s); } } for (const s of due) s.r(); }
+const NEVER = new Promise(() => { });
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -26,33 +31,41 @@ const G = {
   cam: { x: 0, y: 0 }, camTarget: null,
   time: 8, timeRate: 0, timeMax: 24, rain: 0,
   flashlight: false, cash: 2000, inv: {}, locked: 0, chapter: '', running: false,
-  waiters: [], hens: [], entities: [], t: 0,
+  waiters: [], hens: [], entities: [], t: 0, run: 0, paused: false, emotion: null,
 };
 const S = {}; // story flags
 G.timers = [];
-function every(fn, ms) { const id = setInterval(fn, ms); G.timers.push(id); return id; }
+function every(fn, ms) { const id = setInterval(() => { if (!G.paused) fn(); }, ms); G.timers.push(id); return id; }
 
 // ---------- Input ----------
 const keys = {};
 const keyListeners = new Set();
 const INTERACT = ['e', ' ', 'enter'];
+// physical keys, so WASD works with a Malayalam (or any other) keyboard layout switched on
+const keyOf = e => /^Key[A-Z]$/.test(e.code || '') ? e.code[3].toLowerCase() : e.code === 'Space' ? ' ' : (e.key || '').toLowerCase();
+const typing = e => e.target && /^(INPUT|SELECT|TEXTAREA)$/.test(e.target.tagName || '');
 addEventListener('keydown', e => {
-  const k = e.key.toLowerCase();
+  const k = keyOf(e); if (e.metaKey || e.ctrlKey || e.altKey) return;
+  if (G.paused) { if (G.pauseKey) G.pauseKey(k, e); return; }
+  if (typing(e)) return;
   if ([' ', 'arrowup', 'arrowdown', 'arrowleft', 'arrowright'].includes(k)) e.preventDefault();
   if (keys[k]) return;
   keys[k] = true;
+  const modal = $('mini').style.display === 'flex' || $('panel').style.display === 'block'; // the key that closes a window must not also open the pause menu
   for (const l of [...keyListeners]) l(k);
-  onKey(k);
+  if (!modal) onKey(k);
 });
-addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
-addEventListener('mousedown', () => { for (const l of [...keyListeners]) l('click'); });
+addEventListener('keyup', e => { keys[keyOf(e)] = false; });
+// never leave a key stuck down when the window loses focus
+addEventListener('blur', () => { for (const k in keys) keys[k] = false; });
+addEventListener('mousedown', e => { if (G.paused || (e.target && e.target.closest && e.target.closest('button,input,select,#panel,#touch'))) return; for (const l of [...keyListeners]) l('click'); });
 function waitKey(ks = INTERACT.concat('click')) {
-  let l;
-  const p = new Promise(r => { l = k => { if (ks.includes(k)) { keyListeners.delete(l); r(k); } }; keyListeners.add(l); });
+  let l; const run = G.run;
+  const p = new Promise(r => { l = k => { if (run !== G.run) { keyListeners.delete(l); return; } if (ks.includes(k)) { keyListeners.delete(l); r(k); } }; keyListeners.add(l); });
   p.cancel = () => keyListeners.delete(l);
   return p;
 }
-const holding = () => keys['e'] || keys[' '];
+const holding = () => keys['e'] || keys[' '] || keys['enter'];
 let wantInteract = false;
 function onKey(k) {
   if (!G.running) return;
@@ -63,7 +76,7 @@ function onKey(k) {
   }
   if (k === 'c' && G.locked === 0) openCrafting();
   if (typeof onKey4 === 'function') onKey4(k);
-  if ((k === 'escape' || k === 'p') && G.locked === 0) openPause();
+  if (k === 'escape' || k === 'p') openPause();
 }
 
 // ---------- Wait-until helper (checked every frame) ----------
@@ -75,26 +88,27 @@ function checkWaiters() {
   G.waiters = keep;
 }
 const idle = () => until(() => G.locked === 0);
-async function scene(fn) { G.locked++; try { return await fn(); } finally { G.locked--; } }
+async function scene(fn) { const run = G.run; G.locked++; try { return await fn(); } finally { if (run === G.run) G.locked = Math.max(0, G.locked - 1); } }
 
 // ---------- HUD ----------
 function toast(msg) { const d = document.createElement('div'); d.textContent = msg; $('toast').appendChild(d); setTimeout(() => d.remove(), 2700); }
 function fmtTime(h) { h = ((h % 24) + 24) % 24; let hh = Math.floor(h), mm = Math.floor((h - hh) * 60); const ap = hh >= 12 ? 'PM' : 'AM'; hh = hh % 12 || 12; return `${hh}:${String(mm).padStart(2, '0')} ${ap}`; }
 function renderStatus() {
-  const s = $('status');
-  s.innerHTML = `<div class="ch">${G.chapter}</div><div class="big">${G.day ? 'Day ' + G.day + ' · ' : ''}${fmtTime(G.time)}</div><div>₹${G.cash.toLocaleString('en-IN')}</div>${S.debt ? `<div style="color:#e09a8a;font-size:12px">Bank debt ₹${S.debt.toLocaleString('en-IN')}</div>` : ''}${S.scooter && S.scooter.fixed ? `<div style="font-size:12px;color:${S.scooter.fuel < 0.2 ? '#e09a8a' : '#cfe3c0'}">Scooter petrol ${S.scooter.fuel.toFixed(1)} L${G.riding && S.scooter.lights ? ' · light on' : ''}</div>` : ''}`;
+  const s = $('status'), html = `<div class="ch">${G.chapter}</div><div class="big">${G.day ? 'Day ' + G.day + ' · ' : ''}${fmtTime(G.time)}</div><div>₹${G.cash.toLocaleString('en-IN')}</div>${S.debt ? `<div style="color:#e09a8a;font-size:12px">Bank debt ₹${S.debt.toLocaleString('en-IN')}</div>` : ''}${S.scooter && S.scooter.fixed ? `<div style="font-size:12px;color:${S.scooter.fuel < 0.2 ? '#e09a8a' : '#cfe3c0'}">Scooter petrol ${S.scooter.fuel.toFixed(1)} L${G.riding && S.scooter.lights ? ' · light on' : ''}</div>` : ''}`;
+  if (s._html !== html) { s._html = html; s.innerHTML = html; }
 }
 const ITEM = {
   suitcase: 'Suitcase', broom: 'Broom', bedsheet: 'Bedsheet', bulb: 'Light bulb', coconut: 'Coconut', curry: 'Curry leaves',
   water: 'Bucket of water', rice: 'Matta rice (5 kg)', flashlight: 'Flashlight', feed: 'Chicken feed', eggs: 'Eggs', key: 'Rusted key',
   knife: "Appachan's knife", bamboo: 'Bamboo branch', line: 'Fishing line', hook: 'Fishing hook', worm: 'Earthworm', rod: 'Bamboo fishing rod',
-  fish: 'Fish', flowers: 'Flowers for Appachan', sickle: 'Sickle (arival)', mammatti: 'Mammatti (hoe)', branch: 'Branch', planks: 'Wooden planks', nails: 'Nails', leaves: 'Dry leaves', compostbin: 'Compost bin', compost: 'Compost',
+  fish: 'Fish', flowers: 'Flowers for Appachan', sickle: 'Sickle (arivaal)', mammatti: 'Mammatti (hoe)', branch: 'Branch', planks: 'Wooden planks', nails: 'Nails', leaves: 'Dry leaves', compostbin: 'Compost bin', compost: 'Compost',
   seed_cheera: 'Cheera seeds', seed_chilli: 'Chilli seeds', seed_tomato: 'Tomato seeds', stake: 'Bamboo stake', cutting: 'Tapioca stem cuttings', sapling: 'Banana sucker', parts: 'Pump impeller & washer', photo1996: 'Photograph (Aug 1996)', notice: 'Bank notice', kudampuli: 'Kudampuli', cleanfish: 'Cleaned fish', grated: 'Grated coconut', note: "Appachan's note",
 };
 function renderInv() {
   const el = $('inv'); const ks = Object.keys(G.inv).filter(k => G.inv[k] > 0);
   el.style.display = ks.length && G.running ? 'flex' : 'none';
   el.innerHTML = ks.map(k => `<div class="chip">${ITEM[k] || k}${G.inv[k] > 1 ? ' × ' + G.inv[k] : ''}</div>`).join('');
+  document.documentElement.style.setProperty('--invh', (el.style.display === 'flex' ? el.offsetHeight : 0) + 'px');
 }
 function give(k, n = 1, quiet) { G.inv[k] = (G.inv[k] || 0) + n; if (!quiet) { AudioSys.sfx.pickup(); toast(`+ ${ITEM[k] || k}${n > 1 ? ' × ' + n : ''}`); } renderInv(); }
 const has = (k, n = 1) => (G.inv[k] || 0) >= n;
@@ -123,6 +137,9 @@ const clearObj = () => { Obj.items = []; renderObj(); };
 async function fadeOut(ms = 700) { const f = $('fade'); f.style.transition = `opacity ${ms}ms`; f.style.opacity = 1; await sleep(ms); }
 async function fadeIn(ms = 700) { const f = $('fade'); f.style.transition = `opacity ${ms}ms`; f.style.opacity = 0; await sleep(ms); }
 async function card(k, t, m, s, ms = 3500) {
+  const run = G.run; G.locked++; try { return await showCard(k, t, m, s, ms); } finally { if (run === G.run) G.locked = Math.max(0, G.locked - 1); }
+}
+async function showCard(k, t, m, s, ms) {
   const c = $('card'); c.querySelector('.k').textContent = k || ''; c.querySelector('.t').textContent = t || ''; c.querySelector('.m').textContent = m || ''; c.querySelector('.s').textContent = s || '';
   c.style.zIndex = 30; c.style.opacity = 1; await sleep(ms); c.style.opacity = 0; await sleep(1400);
 }
@@ -130,7 +147,7 @@ async function card(k, t, m, s, ms = 3500) {
 // ---------- Dialogue ----------
 const stripTags = s => s.replace(/\[[^\]]+\]\s*/g, '');
 function showSub(who, color, ml, en) {
-  const s = $('sub'); s.style.display = 'block';
+  const s = $('sub'); s.style.display = 'block'; s._decide = 3; if (G.cine) s.classList.remove('top');
   const w = s.querySelector('.who'); w.textContent = who; w.style.color = color || '#e8b65a';
   const mode = (G.settings && G.settings.subs) || 'both';
   if (mode === 'off' && who) { s.style.display = 'none'; return; }
@@ -140,32 +157,43 @@ function showSub(who, color, ml, en) {
 }
 const hideSub = () => { $('sub').style.display = 'none'; };
 G.speaking = null;
+// Where the voice comes from, when its owner is not in front of us
+const VIA = { p_app1: 'on the phone', p_app2: 'on the phone', p_jom1: 'on the phone', c4_jom6: 'on the phone', c1_note: 'the letter', c5_amm1: 'from the kitchen', c5_amm2: 'from inside', c2_amm1: 'from the kitchen', c2_amm2: 'from the kitchen', c2_amm3: 'from the house', c1_amm3: 'from the kitchen', c1_amm5: '', c3_amm5: 'from the kitchen' };
+// The acting direction in a line also drives the face of whoever says it
+function emotionOf(ml) { const t = (ml.match(/\[([^\]]+)\]/g) || []).join(' ').toLowerCase(); if (/cry|sob|breaking/.test(t)) return 'cry'; if (/laugh|cheer|happy|chuckle|warm/.test(t)) return 'happy'; if (/shock|surpris|scared|shaken|pained/.test(t)) return 'shock'; if (/sad|tired|sigh|grave|hesitant/.test(t)) return 'sad'; return 'talk'; }
+const LINE_IDS = Object.keys(LINES);
 async function say(id) {
   const L = LINES[id]; if (!L) { console.warn('missing line', id); return; }
-  const V = VOICES[L.who];
-  G.speaking = L.who;
-  showSub(`${V.name} · ${V.ml}`, V.color, stripTags(L.ml), L.en);
+  const V = VOICES[L.who], run = G.run;
+  G.speaking = L.who; G.emotion = emotionOf(L.ml);
+  { const o = G.map && !G.player.hidden && G.map.objs.find(q => q.npc && q.voice === L.who && objVisible(q)); if (o && Math.hypot(o.x - G.player.x, o.y - G.player.y) < 130) G.talkTo = o; if (G.talkTo && !G.camTarget) { G.zoomTo = G.map.id === 'village' || G.map.outdoor ? 1.28 : 1.16; clearTimeout(say.t); } }
+  // nobody talks to Arjun with their back to him
+  if (L.who !== 'arjun' && G.map && !G.cine && !G.player.hidden) { const o = G.map.objs.find(q => q.npc && q.voice === L.who && q.dir && objVisible(q)), p = G.player; if (o && !o.path && Math.hypot(o.x - p.x, o.y - p.y) < 120) { const f = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[o.dir]; if (f[0] * (p.x - o.x) + f[1] * (p.y - o.y) < 0) o.dir = faceDir(o, p); } }
+  { const i = LINE_IDS.indexOf(id); if (AudioSys.preload) AudioSys.preload(LINE_IDS.slice(i + 1, i + 4)); } // have the next lines ready, so conversations flow
+  showSub(`${V.name} · ${V.ml}${VIA[id] ? ` (${VIA[id]})` : ''}`, V.color, stripTags(L.ml), L.en);
   let skipped = false;
   const k = waitKey(); k.then(() => { skipped = true; AudioSys.stopVoice(); });
-  await Promise.race([AudioSys.voice(id), k]);
-  k.cancel();
+  await Promise.race([AudioSys.voice(id, VIA[id] === 'on the phone' ? 'phone' : undefined), k]);
+  k.cancel(); if (run !== G.run) return NEVER;
   if (!skipped) { const k2 = waitKey(); await Promise.race([sleep(650), k2]); k2.cancel(); }
-  G.speaking = null; hideSub(); await sleep(140);
+  G.speaking = null; G.emotion = null; hideSub(); clearTimeout(say.t); say.t = setTimeout(() => { if (!G.speaking) { G.zoomTo = 1; G.talkTo = null; } }, 1500); await sleep(140);
 }
 async function sayAll(ids) { for (const id of ids) await say(id); }
 async function think(en, ms = 2800) {
+  ms = Math.max(ms, 1300 + en.length * 48); // always long enough to read
   showSub('', '', '', en);
-  await sleep(200);
-  const k = waitKey(); await Promise.race([sleep(ms), k]); k.cancel(); hideSub(); await sleep(120);
+  await sleep(250);
+  const run = G.run, k = waitKey(); await Promise.race([sleep(ms), k]); k.cancel(); if (run !== G.run) return NEVER; hideSub(); await sleep(120);
 }
 
 // ---------- Hold-to-do action ----------
 async function hold(label, ms, tickSfx) {
   const h = $('hold'); h.style.display = 'block'; h.querySelector('.lbl').textContent = `Hold E — ${label}`;
   const fill = h.querySelector('.fill'); let p = 0, last = performance.now(), acc = 0;
+  const run = G.run;
   await new Promise(r => {
     const step = now => {
-      const dt = Math.min(0.05, (now - last) / 1000); last = now;
+      const dt = G.paused ? 0 : Math.min(0.05, (now - last) / 1000); last = now; if (run !== G.run) { h.style.display = 'none'; return; }
       if (holding()) { p += dt * 1000 / ms; acc += dt; if (tickSfx && acc > 0.6) { acc = 0; tickSfx(); } G.player.walk += dt * 6; }
       else p = Math.max(0, p - dt * 0.5);
       fill.style.width = `${Math.min(100, p * 100)}%`;
@@ -193,6 +221,7 @@ function buildStatic(m) {
 async function goto(id, tx, ty, dir = 'down', fade = true) {
   if (fade) await fadeOut(500);
   const m = G.maps[id]; if (!m.static) buildStatic(m);
+  if (G.map !== m) { G.zoomTo = 1; G.talkTo = null; ZOOM = 1; applyZoom(); }
   G.map = m; G.player.x = tx * T; G.player.y = ty * T; G.player.dir = dir; G.player.sit = false;
   m.onEnter && m.onEnter();
   snapCam();
@@ -202,7 +231,10 @@ function objVisible(o) { return o.visible ? o.visible() : true; }
 function objRect(o) { return o.npc ? { x: o.x - 10, y: o.y - 8, w: 20, h: 12 } : o; }
 function solidsNow() {
   const out = G.map.solidsPx.slice();
-  for (const o of G.map.objs) if (o.solid && objVisible(o)) out.push(o.solidRect ? o.solidRect() : objRect(o));
+  for (const o of G.map.objs) {
+    if (o.solid && objVisible(o)) out.push(o.solidRect ? o.solidRect() : objRect(o));
+    else if (o.npc && o.voice && !o.path && objVisible(o)) out.push({ x: o.x - 9, y: o.y - 6, w: 18, h: 9 }); // people take up space
+  }
   return out;
 }
 const hit = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -216,15 +248,20 @@ function updatePlayer(dt) {
   let dy = (keys['s'] || keys['arrowdown'] ? 1 : 0) - (keys['w'] || keys['arrowup'] ? 1 : 0);
   if (!dx && !dy) return;
   const len = Math.hypot(dx, dy); dx /= len; dy /= len;
+  if (dt <= 0) return;
   const sp = (G.riding ? rideSpeed() : keys['shift'] ? 170 : 100) * dt;
   p.dir = Math.abs(dx) > Math.abs(dy) ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up');
-  const sol = solidsNow(), W = G.map.w * T, H = G.map.h * T;
+  const W = G.map.w * T, H = G.map.h * T;
   const box = (x, y) => ({ x: x - 7, y: y - 5, w: 14, h: 7 });
+  const here = box(p.x, p.y), sol = solidsNow().filter(s => !hit(here, s)); // if something closes on top of you, you can always walk out
+  const free = (x, y) => !sol.some(s => hit(box(x, y), s));
   const ox = p.x, oy = p.y;
-  let nx = clamp(p.x + dx * sp, 8, W - 8);
-  if (!sol.some(s => hit(box(nx, p.y), s))) p.x = nx;
-  let ny = clamp(p.y + dy * sp, 14, H - 4);
-  if (!sol.some(s => hit(box(p.x, ny), s))) p.y = ny;
+  let nx = clamp(p.x + dx * sp, 8, W - 8), ny = clamp(p.y + dy * sp, 14, H - 4);
+  const okx = free(nx, p.y); if (okx) p.x = nx;
+  const oky = free(p.x, ny); if (oky) p.y = ny;
+  // slide round small corners instead of catching on them
+  if (dx && !dy && !okx) for (const o of [4, -4, 8, -8, 11, -11]) if (free(nx, p.y + o) && free(p.x, p.y + Math.sign(o) * sp * 0.7)) { p.y += Math.sign(o) * sp * 0.7; break; }
+  if (dy && !dx && !oky) for (const o of [4, -4, 8, -8, 11, -11]) if (free(p.x + o, ny) && free(p.x + Math.sign(o) * sp * 0.7, p.y)) { p.x += Math.sign(o) * sp * 0.7; break; }
   if (G.riding) { onRide(Math.hypot(p.x - ox, p.y - oy)); if (typeof rideSound === 'function') rideSound(true, sp / dt); }
   p.moving = true; const ph = Math.floor(p.walk / Math.PI); p.walk += dt * (keys['shift'] ? 14 : 10); if (Math.floor(p.walk / Math.PI) !== ph && typeof onStep === 'function' && !G.riding) onStep();
 }
@@ -244,9 +281,12 @@ function findTarget() {
   }
   return best;
 }
+function faceDir(a, b) { const dx = b.x - a.x, dy = b.y - a.y; return Math.abs(dx) > Math.abs(dy) * 1.1 ? (dx > 0 ? 'right' : 'left') : (dy > 0 ? 'down' : 'up'); }
 async function runInteract(o) {
-  G.locked++;
-  try { await o.act(o); } catch (e) { console.error(e); } finally { G.locked--; }
+  const run = G.run, p = G.player; G.locked++;
+  // turn to what you are doing, and people turn to you
+  if (!G.riding) { const c = o.npc ? o : { x: o.x + o.w / 2, y: o.y + o.h / 2 }; p.dir = faceDir(p, c); if (o.npc && o.voice && o.dir) o.dir = faceDir(o, p); }
+  try { await o.act(o); } catch (e) { console.error(e); } finally { if (run === G.run) G.locked = Math.max(0, G.locked - 1); }
 }
 
 // ---------- Moving things (NPCs, vehicles) ----------
@@ -290,7 +330,12 @@ function updateHens(dt) {
 }
 
 // ---------- Camera ----------
-function camFocus() { const t = G.camTarget || G.player; return { x: t.x, y: t.y - 16 }; }
+function camFocus() {
+  const t = G.camTarget || G.player; if (!G.camTarget && G.talkTo && G.zoomTo > 1) return { x: (t.x + G.talkTo.x) / 2, y: (t.y + G.talkTo.y) / 2 - 16 };
+  return { x: t.x, y: t.y - 16 };
+}
+// conversations: the camera leans in a little, and settles between the two people
+function updateZoom(dt) { const want = G.zoomTo || 1; if (Math.abs(want - ZOOM) < 0.002) { if (ZOOM !== want) { ZOOM = want; applyZoom(); } return; } ZOOM += (want - ZOOM) * (1 - Math.exp(-dt * 2.6)); applyZoom(); }
 function camWanted() {
   const f = camFocus(), W = G.map.w * T, H = G.map.h * T;
   let x = f.x - VW / 2, y = f.y - VH / 2;
@@ -306,9 +351,9 @@ function darkness() {
   const h = G.time;
   let d;
   if (h >= 6.5 && h < 17) d = 0;
-  else if (h >= 17 && h < 19.5) d = (h - 17) / 2.5 * 0.8;
-  else if (h >= 5 && h < 6.5) d = (6.5 - h) / 1.5 * 0.8;
-  else d = 0.82;
+  else if (h >= 17 && h < 19.5) d = (h - 17) / 2.5 * 0.76;
+  else if (h >= 5 && h < 6.5) d = (6.5 - h) / 1.5 * 0.76;
+  else d = 0.76;
   if (G.map.dark !== undefined) d = G.map.dark;
   else if (!G.map.outdoor) d = G.map.indoorDark ? Math.min(d, G.map.indoorDark()) : Math.min(d, 0.3);
   return d;
@@ -342,6 +387,7 @@ function drawLighting() {
     g.addColorStop(0, `rgba(0,0,0,${L.a ?? 1})`); g.addColorStop(1, 'rgba(0,0,0,0)');
     lx.fillStyle = g; lx.beginPath(); lx.arc(sx, sy, r, 0, Math.PI * 2); lx.fill();
   }
+  if (lightCv.width < 2) return;
   cx.setTransform(1, 0, 0, 1, 0, 0);
   cx.drawImage(lightCv, 0, 0);
   // warm glow on top of lamps
@@ -378,24 +424,29 @@ function drawRain(dt) {
 // ---------- Main loop ----------
 let lastT = performance.now();
 function frame(now) {
-  const dt = Math.min(0.05, (now - lastT) / 1000); lastT = now; G.t += dt;
+  try { tick(now); } catch (e) { if (!frame.err || now - frame.err > 5000) { frame.err = now; console.error('frame', e); } } // one bad frame must never stop the game
+  requestAnimationFrame(frame);
+}
+function tick(now) {
+  const real = Math.max(0, now - lastT), dt = Math.min(0.05, real / 1000); lastT = now;
+  if (G.paused) return;
+  G.t += dt; tickSleepers(Math.min(real, 250));
   if (G.cine) {
     cx.setTransform(1, 0, 0, 1, 0, 0); G.cine(cx, cv.width, cv.height);
   } else if (G.running && G.map) {
     if (G.timeRate) G.time = Math.min(G.timeMax, G.time + G.timeRate * dt);
-    updatePlayer(dt); updateMovers(dt); updateHens(dt); updateCam(dt);
+    updatePlayer(dt); updateMovers(dt); updateHens(dt); updateZoom(dt); updateCam(dt);
     currentTarget = findTarget();
     if (wantInteract) { wantInteract = false; if (currentTarget && G.locked === 0) runInteract(currentTarget); }
     render(dt);
     const pr = $('prompt');
     if (currentTarget && !G.locked) {
       const lab = typeof currentTarget.label === 'function' ? currentTarget.label() : currentTarget.label;
-      pr.style.display = 'block'; pr.innerHTML = `<kbd>E</kbd>${lab}`;
+      if (pr._lab !== lab) { pr._lab = lab; pr.innerHTML = `<kbd>E</kbd>${lab}`; } pr.style.display = 'block';
     } else pr.style.display = 'none';
     renderStatus(); hudGhost();
   } else { wantInteract = false; }
   checkWaiters();
-  requestAnimationFrame(frame);
 }
 requestAnimationFrame(frame);
 
@@ -403,6 +454,12 @@ requestAnimationFrame(frame);
 function hudGhost() {
   const pts = [];
   const toCss = (wx, wy) => [(wx - G.cam.x) * SCALE / DPR, (wy - G.cam.y) * SCALE / DPR];
+  // never let the dialogue box sit on top of the people who are talking
+  const sub = $('sub'); if (sub._decide && sub.style.display === 'block' && G.map) {
+    sub._decide--; const h = sub.offsetHeight || 110, lowTop = innerHeight - (parseFloat(getComputedStyle(sub).bottom) || 110) - h - 8; let low = false;
+    for (const q of [G.player.hidden ? null : G.player, G.talkTo || (G.speaking && G.map.objs.find(o => o.npc && o.voice === G.speaking && objVisible(o)))]) if (q) { const [x, y] = toCss(q.x, q.y); if (y > lowTop && y < innerHeight + 30 && Math.abs(x - innerWidth / 2) < sub.offsetWidth / 2 + 20) low = true; }
+    if (sub._decide === 0 || low) sub.classList.toggle('top', low);
+  }
   if (!G.player.hidden) { pts.push(toCss(G.player.x, G.player.y - 16)); pts.push(toCss(G.player.x, G.player.y - 40)); }
   if (typeof currentGoal === 'function') { const gl = currentGoal(); if (gl && gl[0] === G.map.id) pts.push(toCss(gl[1] * T, gl[2] * T)); }
   for (const id of ['obj', 'status']) {
@@ -440,7 +497,7 @@ function render(dt) {
   for (const e of G.entities) if (e.map === m.id && e.draw && !e.hidden) list.push({ y: e.y, f: () => e.draw(cx, e) });
   if (m.id === 'village') for (const h of G.hens) if (!h.hidden) list.push({ y: h.y, f: () => drawHen(cx, h) });
   const p = G.player;
-  if (!p.hidden) list.push({ y: p.y, f: () => G.riding ? drawRider(cx, p) : drawPerson(cx, p.x, p.y, outfitFor(p), p.dir, p.walk, p.moving || holding() && G.locked > 0 && $('hold').style.display === 'block', G.speaking === 'arjun', p.sit) });
+  if (!p.hidden) list.push({ y: p.y, f: () => G.riding ? drawRider(cx, p) : drawPerson(cx, p.x, p.y, outfitFor(p), p.dir, p.walk, p.moving || holding() && G.locked > 0 && $('hold').style.display === 'block', G.speaking === 'arjun' && (G.emotion || true), p.sit) });
   list.sort((a, b) => a.y - b.y);
   for (const d of list) d.f();
   m.drawTop && m.drawTop(cx);

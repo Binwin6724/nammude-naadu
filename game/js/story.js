@@ -6,7 +6,7 @@ async function shedAct() {
   if (active('feed') && !has('feed')) { give('feed'); done('feed'); got = true; }
   if (active('line') && !has('line')) { give('line'); done('line'); got = true; await think('An old spool of nylon line, still good.', 1800); }
   if (active('bamboo') && !has('knife') && !has('bamboo')) { give('knife'); got = true; await think("Appachan's vettukathi, wrapped in cloth and oiled. He always looked after his tools.", 2600); }
-  if (active('sickle') && !has('sickle') && !S.sickleSharp) { give('sickle'); got = true; await think("Appachan's arival. The blade is blunt and spotted with rust. It needs a good sharpening.", 2800); }
+  if (active('sickle') && !has('sickle') && !S.sickleSharp) { give('sickle'); got = true; await think("Appachan's arivaal. The blade is blunt and spotted with rust. It needs a good sharpening.", 2800); }
   if ((active('beds') || active('sapling')) && !has('mammatti')) { give('mammatti'); got = true; }
   if (active('compost') && !has('planks') && !has('compostbin') && !S.compostBin) { give('planks', 2); got = true; }
   if (active('cutting') && !has('cutting')) { give('cutting'); done('cutting'); got = true; await think('A bundle of kappa stems, tied with coir. Appachan always kept cuttings for the next season.', 2800); }
@@ -55,7 +55,7 @@ function openCrafting() {
     }).join('') + `<div class="foot">${msg || 'E — craft · C / Esc — close'}</div>`;
   };
   draw();
-  const close = () => { keyListeners.delete(l); el.style.display = 'none'; setTimeout(() => G.locked--, 0); };
+  const close = () => { keyListeners.delete(l); el.style.display = 'none'; setTimeout(() => { G.locked = Math.max(0, G.locked - 1); }, 0); };
   const l = async k => {
     if (k === 'c' || k === 'escape') return close();
     if (!INTERACT.includes(k)) return;
@@ -67,7 +67,7 @@ function openCrafting() {
     for (let i = 0; i <= 10; i++) { draw(`${r.work}... ${'▮'.repeat(i)}${'▯'.repeat(10 - i)}`); AudioSys.sfx.knock(); await sleep(150); }
     for (const [m, n] of Object.entries(r.mats)) take(m, n);
     give(r.out); r.after && r.after(); draw(`Crafted: ${r.name}!`);
-    await sleep(900); el.style.display = 'none'; G.locked--;
+    await sleep(900); el.style.display = 'none'; G.locked = Math.max(0, G.locked - 1);
   };
   keyListeners.add(l);
 }
@@ -89,6 +89,7 @@ function fishingGame() {
       else if (st === 'bite') { st = 'reel'; prog = 0.15; ten = 0.15; t = 0; msg = 'Hold E to reel · let go when the fish pulls!'; }
       else if (st === 'result') { if ((G.inv.fish || 0) >= 2) finish(); else { st = 'ready'; msg = 'Press E to cast  ·  Esc to stop fishing'; } }
     };
+    G._fish = () => ({ st, pull, ten, prog });
     keyListeners.add(key);
     function step(now) {
       if (fin) return;
@@ -152,6 +153,7 @@ function cookingGame() {
       ['Slide in the fish and cook gently', 0.14, 0.32, '#b8442a'],
     ];
     let heat = 0.2, si = 0, inZone = 0, last = performance.now(), t = 0, fin = false, flash = '';
+    G._cook = () => ({ heat, lo: (STAGES[si] || [0, 0, 0])[1], hi: (STAGES[si] || [0, 0, 0])[2] });
     function step(now) {
       if (fin) return;
       const dt = Math.min(0.05, (now - last) / 1000); last = now; t += dt;
@@ -196,7 +198,14 @@ function gate(name, label, ok, fail, fn) {
 function resetWorld() {
   for (const k of Object.keys(S)) delete S[k];
   letterbox(false); G.cine = null; S.hooks = {}; Obj.items = []; G.day = 0; G.waiters = []; G.timers.forEach(clearInterval); G.timers = []; G.timeRate = 0; renderObj(); G.inv = {}; G.hens = []; G.entities = []; G.camTarget = null; G.player.hidden = false; G.player.sit = false; G.flashlight = false; G.speaking = null;
+  restoreHomes(); G.zoomTo = 1; G.talkTo = null; G.riding = false; G.radioMute = false;
+}
+// Everyone and everything goes back to where it started, so any chapter can be replayed at any time.
+let HOMES = null;
+function rememberHomes() { HOMES = []; for (const m of Object.values(G.maps)) for (const o of m.objs) { const d = Object.getOwnPropertyDescriptor(o, 'x'); if (o.life || !d || d.get) continue; HOMES.push([o, o.x, o.y, o.w, o.h, o.dir, o.sitting]); } }
+function restoreHomes() {
   for (const m of Object.values(G.maps)) for (const o of m.objs) if (o.path) o.path = null;
+  if (HOMES) for (const [o, x, y, w, h, dir, sitting] of HOMES) { o.x = x; o.y = y; if (w !== undefined) { o.w = w; o.h = h; } if (dir !== undefined) o.dir = dir; o.sitting = sitting; o.moving = false; }
 }
 const COOP_ZONE = [27.5, 16.8, 6, 4.5], GROVE_ZONE = [2, 30.5, 7, 10];
 
@@ -272,9 +281,9 @@ async function cinematicJourney() {
 }
 
 // ======================= CHAPTER 1 — VEETTILEKKU =======================
-async function chapter1() {
-  save('ch1');
-  G.chapter = 'Chapter 1 · Veettilekku'; G.time = 17.3; G.timeRate = 0.005; G.timeMax = 19.2; G.rain = 0.25;
+async function chapter1(part = 0) {
+  save('ch1'); Object.assign(G.maps.house.objs.find(o => o.id === 'rag'), { x: 12.3 * T, y: 15.4 * T });
+  G.day = 1; G.chapter = 'Chapter 1 · Veettilekku'; G.time = 17.3; G.timeRate = 0.005; G.timeMax = 19.2; G.rain = 0.25;
   AudioSys.setRain(0.4); AudioSys.setHum(0); AudioSys.setAmbience({ birds: true, night: false, frogs: true });
   G.player.outfit = 'travel';
   S.jomonOn = true; S.cocoOn = 1; S.houseLights = true;
@@ -283,6 +292,7 @@ async function chapter1() {
   CANOE.x = 62.9 * T; CANOE.y = 25.4 * T; CANOE.rower = false;
   G.entities = [AUTO, CANOE];
   hud(false); await fadeOut(10);
+  if (part < 1) {
   await card('Chapter 1', 'Veettilekku', 'വീട്ടിലേക്ക്', 'Back Home', 3800);
   await goto('village', 60.6, 4.3, 'down', false); hud(true); Music.set('sad'); await fadeIn(1500);
   await scene(() => think('Eight years. I always thought I would come back for a happier reason.', 3400));
@@ -317,6 +327,9 @@ async function chapter1() {
   await waitAll();
   await scene(async () => { await fadeOut(500); S.ammVeranda = false; setAmm('kitchen'); Music.set('evening'); await fadeIn(500); });
   S.memOn = true;
+  }
+  await checkpoint('ch1', 1, part);
+  if (part < 2) {
   setObj('Mission 1 — Settle into your old home', [['unpack', 'Unpack your suitcase'], ['windows', 'Open the bedroom windows'], ['sweep', 'Sweep the bedroom floor (0/3)'], ['bedsheet', 'Find a bedsheet and make the bed'], ['bulb', 'Replace the broken light bulb'], ['bathroom', 'Locate the bathroom']], () => `Memories: ${S.mems || 0}/4 (optional) — look at old things in the house`);
   toast('Your room is on the left side of the hall.');
   await waitAll();
@@ -344,6 +357,8 @@ async function chapter1() {
     await fadeOut(600); S.mealOnTable = false; G.player.sit = false; G.player.y = 10.75 * T; setAmm('hall'); await fadeIn(600);
   });
   S.verandaLight = true; S.night = true; G.hens.forEach(h => h.hidden = true);
+  }
+  await checkpoint('ch1', 2, part);
   setObj('Before bed', [['light', 'Switch off the outside light (by the front door)'], ['coop', 'Lock the chicken coop']]);
   await waitAll();
   setObj('Before bed', [['appa', "Look in on Appachan's room"]]);
@@ -370,7 +385,7 @@ async function chapter1() {
     if (G.map.id !== 'house') await goto('house', 2, 4.3, 'down', false);
     G.player.x = 2 * T; G.player.y = 4.3 * T; G.player.dir = 'down'; snapCam();
     await card('', '1:12 AM', '', '', 1800); await fadeIn(1300);
-    await sleep(700); AudioSys.sfx.rustle(); await sleep(700); AudioSys.sfx.knock(); await sleep(300); AudioSys.sfx.knock(); await sleep(500);
+    await sleep(700); AudioSys.sfx.rustle(); await sleep(700); AudioSys.sfx.creak(); await sleep(600); AudioSys.sfx.knock(); await sleep(500);
     await say('c1_arj4');
   });
   S.shedOpen = true;
@@ -386,7 +401,7 @@ async function chapter1() {
 // ======================= FUNERAL & MORNING MONTAGE =======================
 async function funeral() {
   G.time = 7.6; G.timeRate = 0; G.rain = 0.55; AudioSys.setRain(0.7); AudioSys.setAmbience({ birds: false, night: false, frogs: false });
-  G.player.outfit = 'mundu'; give('flowers', 1, true);
+  G.day = 2; G.player.outfit = 'white'; give('flowers', 1, true);
   const cm = G.maps.church, jom = cm.objs.find(o => o.id === 'cJom'); jom.x = 8.2 * T; jom.y = 10.9 * T; jom.dir = 'right';
   await goto('church', 10, 13.6, 'up', false);
   await scene(async () => {
@@ -411,11 +426,11 @@ async function funeral() {
     await caption('He stayed a little longer, after everyone had gone.', 3600);
     await fadeOut(2200); letterbox(false);
   });
-  hud(false); AudioSys.setRain(0);
+  hud(false); AudioSys.setRain(0); G.player.outfit = 'mundu'; G.day = 5;
 }
 async function morningMontage() {
   G.locked++; hud(false); letterbox(true);
-  G.time = 5.95; G.rain = 0; AudioSys.setRain(0); AudioSys.setAmbience({ birds: true, night: false, frogs: false }); Music.set(null);
+  G.day = 5; G.time = 5.95; G.rain = 0; AudioSys.setRain(0); AudioSys.setAmbience({ birds: true, night: false, frogs: false }); Music.set(null);
   CANOE.x = 64 * T; CANOE.y = 14 * T; CANOE.rower = true; S.kunOn = false;
   await goto('village', 22, 26, 'down', false);
   const songOn = playMorningSong();
@@ -435,10 +450,10 @@ async function morningMontage() {
 }
 
 // ======================= CHAPTER 2 — A MORNING IN KERALA =======================
-async function chapter2() {
+async function chapter2(part = 0) {
   save('ch2');
   const wasCash = G.cash; resetWorld(); G.cash = wasCash < 2000 ? wasCash : 1820;
-  G.chapter = 'Chapter 2 · A Morning in Kerala'; G.time = 6.4; G.timeRate = 0.005; G.timeMax = 12.6; G.rain = 0;
+  G.day = part ? 5 : 2; G.chapter = 'Chapter 2 · A Morning in Kerala'; G.time = 6.4; G.timeRate = 0.005; G.timeMax = 12.6; G.rain = 0;
   AudioSys.setRain(0); AudioSys.setHum(0); AudioSys.setAmbience({ birds: true, night: false, frogs: false });
   Object.assign(S, { houseLights: true, bedMade: true, bulbFixed: true, unpacked: true, boxFound: true, win0: true, win1: true, dust0: true, dust1: true, dust2: true, kunOn: true, eggsInNest: true, cocoOn: 2, ammLoc: 'kitchen', swept: true });
   G.player.outfit = 'mundu';
@@ -451,9 +466,11 @@ async function chapter2() {
   const hi = vobjs.findIndex(o => o.id === 'redhen'); if (hi >= 0) vobjs.splice(hi, 1, henObj); else vobjs.push(henObj);
   setAmm('kitchen');
   hud(false); await fadeOut(10);
+  if (part < 1) {
   if (!S.skipFuneral) await funeral();
   await card('Chapter 2', 'A Morning in Kerala', 'കേരളത്തിലെ ഒരു പ്രഭാതം', 'Three days later', 3800);
   await morningMontage();
+  G.player.outfit = 'mundu';
   await goto('house', 2, 4.3, 'down', false); hud(true); await fadeIn(1500);
   await scene(async () => { await sleep(600); await say('c2_amm1'); fadeSong(5000).then(() => Music.set('morning')); await say('c2_amm2'); });
 
@@ -470,7 +487,10 @@ async function chapter2() {
   setHook('amm', 'Give Ammachi the eggs', async () => { take('eggs', 3); done('giveEggs'); await say('c2_amm4'); await say('c2_arj3'); });
   await waitAll();
 
+  }
   // Mission 4
+  await checkpoint('ch2', 1, part);
+  if (part < 2) {
   S.rodRecipe = true; for (const i of [0, 1, 2]) S['soil' + i] = false;
   setObj('Mission 4 — Catch fish for lunch', [['bamboo', "Cut a bamboo branch at the riverbank (Appachan's knife is in the shed)"], ['line', 'Find fishing line (shed, or Vasu Stores)'], ['hook', 'Ask Kunjumon for a hook (hut by the river)'], ['worms', 'Dig up earthworms near the bananas (0/3)'], ['craft', 'Craft a fishing rod (press C)'], ['fish', 'Catch two fish at the pond (0/2)']]);
   setHook('kunjumon', 'Talk to the old fisherman', async () => { await say('c2_kun0'); give('hook'); done('hook'); await think('He goes back to mending his net without another word. But he keeps glancing at me.', 3000); });
@@ -489,7 +509,9 @@ async function chapter2() {
     letterbox(false); Music.set('day');
   });
 
+  }
   // Mission 5
+  await checkpoint('ch2', 2, part);
   S.cocoOn = 2; S.coco0 = false;
   setObj('Mission 5 — Prepare lunch', [['clean', 'Clean the fish at the well'], ['kudampuli', 'Pick kudampuli from the tree by the south fence'], ['curry2', 'Pluck curry leaves'], ['grate', 'Grate a coconut in the kitchen (fallen coconut under the palms)'], ['cook', 'Cook meen curry with Ammachi (hearth)']]);
   gate('grate', 'Grate the coconut', () => has('coconut'), 'I need a coconut first — there is usually one fallen under the palms near the mango tree.', async () => {
@@ -505,7 +527,7 @@ async function chapter2() {
     await fadeOut(900); Music.set('evening'); letterbox(true); G.time = 13; G.timeRate = 0; S.mealOnTable = true; setAmm('table');
     await goto('house', 14.3, 11.15, 'down', false); G.player.sit = true; await fadeIn(900);
     await say('c2_arj6'); await say('c2_amm7');
-    await think('She changes the subject. Just like last night.', 2600);
+    await think('She changes the subject. Just as she did about the box.', 2600);
     await say('c2_arj7');
     letterbox(false);
   });
@@ -534,10 +556,10 @@ async function bedAct(i) {
     const n = S.beds.filter(x => x.water).length; setObjText('waterBeds', `Water the beds (${n}/5)`); if (n === 5) done('waterBeds');
   }
 }
-async function chapter3() {
+async function chapter3(part = 0) {
   save('ch3');
   const wasCash = G.cash; resetWorld(); G.cash = wasCash < 2000 ? wasCash : 1780;
-  G.chapter = "Chapter 3 · Appachan's Farm"; G.day = 3; G.time = 7; G.timeRate = 0.005; G.timeMax = 17.5; G.rain = 0;
+  G.chapter = "Chapter 3 · Appachan's Farm"; G.day = 6; G.time = 7; G.timeRate = 0.005; G.timeMax = 17.5; G.rain = 0;
   AudioSys.setRain(0); AudioSys.setHum(0); AudioSys.setAmbience({ birds: true, night: false, frogs: false });
   Object.assign(S, { houseLights: true, bedMade: true, bulbFixed: true, unpacked: true, boxFound: true, win0: true, win1: true, dust0: true, dust1: true, dust2: true, kunOn: true, cocoOn: 0, swept: true, beds: [0, 1, 2, 3, 4].map(() => ({})) });
   G.player.outfit = 'mundu'; give('knife', 1, true); give('key', 1, true); give('rod', 1, true);
@@ -545,8 +567,9 @@ async function chapter3() {
   CANOE.x = 62.9 * T; CANOE.y = 25.4 * T; CANOE.rower = false; G.entities = [CANOE];
   const kun = G.maps.village.objs.find(o => o.id === 'kun'); kun.x = 54.6 * T; kun.y = 26.6 * T; kun.sitting = true; kun.dir = 'down';
   const sasi = G.maps.village.objs.find(o => o.id === 'sasi'); sasi.x = 55.1 * T; sasi.y = 4.4 * T; sasi.dir = 'down';
-  setAmm('kitchen');
+  setAmm('none');
   hud(false); await fadeOut(10);
+  if (part < 1) {
   await card('Chapter 3', "Appachan's Farm", 'അപ്പച്ചന്റെ പറമ്പ്', '', 3800);
   S.ammVeranda = true;
   await goto('village', 23.6, 24.4, 'right', false); hud(true); Music.set('morning'); await fadeIn(1500);
@@ -574,25 +597,36 @@ async function chapter3() {
   setObj('Mission 6 — Restore the farmland', [['sickle', "Find Appachan's sickle (shed) and sharpen it at the well"], ['weeds', 'Clear the weeds (0/6)'], ['branches', 'Collect fallen branches (0/4)'], ['fence', 'Repair the broken fence (0/3)'], ['compost', 'Make a compost bin (planks: shed · nails: Vasu Stores · dry leaves: mango tree), craft it (C), set it by the pit'], ['beds', 'Dig planting beds with the mammatti (0/5)']]);
   await waitAll();
 
+  }
   // Mission 7
+  await checkpoint('ch3', 1, part);
+  if (part < 2) {
   await scene(() => think('Clean ground, a mended fence, five beds of dark turned soil. Now, what to grow?', 2800));
   setObj('Mission 7 — Plant your first crops', [['seeds', 'Buy cheera, chilli and tomato seeds (Vasu Stores)'], ['stake', 'Cut a bamboo stake for the tomato (riverbank)'], ['cutting', 'Find tapioca stem cuttings (shed)'], ['sapling', 'Dig up a banana sucker in the banana grove'], ['plant', 'Plant all five beds (0/5)'], ['waterBeds', 'Water the beds (0/5) — draw water at the well']], () => 'Chilli and banana need compost. Rain waters crops for you; too much rain can damage them.');
   await waitAll();
   G.time = Math.max(G.time, 17.2);
-  await scene(() => say('c3_amm4'));
+  await scene(async () => { // Ammachi has walked down to see the farm
+    const av = G.maps.village.objs.find(o => o.npc && o.voice === 'ammachi'), home = [av.x, av.y, av.dir, av.sitting]; await fadeOut(600);
+    if (G.map.id !== 'village') await goto('village', 22, 38.6, 'down', false);
+    av.sitting = false; av.x = G.player.x + 1.2 * T; av.y = G.player.y; av.dir = 'left'; S.ammVeranda = true; G.player.dir = 'right'; await fadeIn(700);
+    await think('Ammachi has come down the path on her own, one hand on the fence. She bends and touches the soil.', 3000);
+    await say('c3_amm4'); await fadeOut(600); [av.x, av.y, av.dir, av.sitting] = home; await fadeIn(600);
+  });
   setObj('Evening', [['sleep', 'Rest — sleep in your room']]);
   setHook('sleep', 'Sleep', async () => done('sleep'));
   await waitAll();
 
   // Day 4
   await scene(async () => {
-    await fadeOut(1300); G.day = 4; G.time = 6.8; G.timeMax = 17.8; S.ammVeranda = false; setAmm('kitchen');
+    await fadeOut(1300); G.day = 7; G.time = 6.8; G.timeMax = 17.8; S.ammVeranda = false; setAmm('kitchen');
     S.beds.forEach(b => { b.stage = 1; b.water = false; });
     if (G.map.id !== 'house') await goto('house', 2, 4.3, 'down', false);
     G.player.x = 2 * T; G.player.y = 4.3 * T; snapCam();
-    await card('', 'Day 4', '', 'Small green shoots have appeared in every bed.', 2600); await fadeIn(1300);
+    await card('', 'Day 7', '', 'Small green shoots have appeared in every bed.', 2600); await fadeIn(1300);
     AudioSys.sfx.bell(); await sleep(900); await say('c3_amm5');
   });
+  }
+  await checkpoint('ch3', 2, part);
 
   // Mission 8
   setObj('Mission 8 — Repair the water pump', [['inspect', 'Inspect the old pump house at the farm'], ['pumpweeds', 'Clear the weeds choking the pump'], ['sasi', 'Ask Sasi Chettan for help (workshop at the junction)'], ['parts', 'Buy the replacement parts (₹650)'], ['repair', 'Repair the pump with Sasi Chettan']]);
@@ -643,13 +677,37 @@ async function chapter3() {
 }
 
 // ======================= TITLE =======================
+// Checkpoints: a snapshot of the world saved part-way through a chapter. Loading one runs the chapter's set-up, skips the
+// parts already played, then restores the snapshot.
+const SNAP_NPCS = ['kun', 'sasi', 'jomon', 'meera', 'latha', 'kabeer'];
+function saveSnap(key, n) {
+  try {
+    const flags = {}; for (const k in S) { if (k === 'hooks') continue; const v = S[k]; if (v === null || ['boolean', 'number', 'string'].includes(typeof v) || k === 'beds' || k === 'scooter') flags[k] = v; }
+    const npc = {}; for (const id of SNAP_NPCS) { const o = G.maps.village.objs.find(q => q.id === id); if (o) npc[id] = { x: o.x, y: o.y, dir: o.dir, sitting: !!o.sitting }; }
+    const snap = { key, n, flags, npc, inv: G.inv, cash: G.cash, time: G.time, timeRate: G.timeRate, timeMax: G.timeMax, day: G.day, rain: G.rain, outfit: G.player.outfit, map: G.map.id, x: G.player.x / T, y: G.player.y / T, dir: G.player.dir, music: Music.mood, amb: Object.assign({}, AudioSys.flags), chapter: G.chapter,
+      hens: G.hens.map(h => ({ x: h.x, y: h.y, zone: h.zone, color: h.color, red: h.red, hidden: !!h.hidden })), auto: { x: AUTO.x, y: AUTO.y, hidden: !!AUTO.hidden, on: G.entities.includes(AUTO) } };
+    localStorage.setItem('nn_snap', JSON.stringify(snap)); toast('Checkpoint saved');
+  } catch (e) { console.warn('checkpoint', e.message); }
+}
+function readSnap() { try { const s = JSON.parse(localStorage.getItem('nn_snap') || 'null'); return s && s.key && s.n ? s : null; } catch (e) { return null; } }
+async function checkpoint(key, n, part) {
+  if (n < part) return; // already past this one
+  if (part !== n) { saveSnap(key, n); return; }
+  const s = readSnap(); if (!s || s.key !== key || s.n !== n) return;
+  const hooks = S.hooks; Object.assign(S, s.flags); S.hooks = hooks; G.inv = s.inv || {}; G.cash = s.cash; G.time = s.time; G.timeRate = s.timeRate; G.timeMax = s.timeMax; G.day = s.day; G.rain = s.rain; G.chapter = s.chapter; G.player.outfit = s.outfit; G.player.hidden = false; G.player.sit = false;
+  for (const id in s.npc) { const o = G.maps.village.objs.find(q => q.id === id); if (o) Object.assign(o, s.npc[id], { path: null }); }
+  if (s.hens.length) { const keep = G.hens; G.hens = s.hens.map((h, i) => Object.assign(keep[i] || makeHen(0, 0, h.zone, h.color, h.red), h, { tx: h.x, ty: h.y, follow: false })); }
+  AUTO.x = s.auto.x; AUTO.y = s.auto.y; AUTO.hidden = s.auto.hidden; AUTO.passenger = false; G.entities = G.entities.filter(e => e !== AUTO); if (s.auto.on) G.entities.push(AUTO);
+  AudioSys.setAmbience(s.amb); AudioSys.setRain(s.amb.rain || 0); if (S.ammLoc) setAmm(S.ammLoc);
+  await goto(s.map, s.x, s.y, s.dir, false); letterbox(false); hud(true); renderInv(); Music.set(s.music); await fadeIn(1200); toast('Continuing from your last checkpoint');
+}
 const CHAPTERS = [
   { key: 'prologue', name: 'Prologue', sub: 'One Last Phone Call', ml: 'അവസാനത്തെ ഫോൺ വിളി', fn: () => prologue() },
-  { key: 'ch1', name: 'Chapter 1', sub: 'Veettilekku · Back Home', ml: 'വീട്ടിലേക്ക്', fn: () => chapter1() },
-  { key: 'ch2', name: 'Chapter 2', sub: 'A Morning in Kerala', ml: 'കേരളത്തിലെ ഒരു പ്രഭാതം', fn: () => chapter2() },
-  { key: 'ch3', name: 'Chapter 3', sub: "Appachan's Farm", ml: 'അപ്പച്ചന്റെ പറമ്പ്', fn: () => chapter3() },
-  { key: 'ch4', name: 'Chapter 4', sub: 'Pazhaya Koottukaar · Old Friends', ml: 'പഴയ കൂട്ടുകാർ', fn: () => chapter4() },
-  { key: 'ch5', name: 'Chapter 5', sub: 'The Locked Room', ml: 'പൂട്ടിയ മുറി', fn: () => chapter5() },
+  { key: 'ch1', name: 'Chapter 1', sub: 'Veettilekku · Back Home', ml: 'വീട്ടിലേക്ക്', fn: p => chapter1(p) },
+  { key: 'ch2', name: 'Chapter 2', sub: 'A Morning in Kerala', ml: 'കേരളത്തിലെ ഒരു പ്രഭാതം', fn: p => chapter2(p) },
+  { key: 'ch3', name: 'Chapter 3', sub: "Appachan's Farm", ml: 'അപ്പച്ചന്റെ പറമ്പ്', fn: p => chapter3(p) },
+  { key: 'ch4', name: 'Chapter 4', sub: 'Pazhaya Koottukaar · Old Friends', ml: 'പഴയ കൂട്ടുകാർ', fn: p => chapter4(p) },
+  { key: 'ch5', name: 'Chapter 5', sub: 'The Locked Room', ml: 'പൂട്ടിയ മുറി', fn: p => chapter5(p) },
   { key: 'ch6', name: 'Chapter 6', sub: 'A Village Full of Stories', ml: 'കഥകളുടെ ഗ്രാമം', fn: null },
 ];
 function unlockedIndex() {
@@ -659,14 +717,15 @@ function unlockedIndex() {
 }
 function save(ch) {
   try {
-    localStorage.setItem('nn_chapter', ch);
+    localStorage.setItem('nn_chapter', ch); const sn = readSnap(); if (!sn || sn.key !== ch) localStorage.removeItem('nn_snap');
     const i = CHAPTERS.findIndex(c => c.key === ch);
     if (i > +(localStorage.getItem('nn_unlocked') || 0)) { localStorage.setItem('nn_unlocked', i); if (i > 0) toast(`Unlocked: ${CHAPTERS[i].name} — ${CHAPTERS[i].sub}`); }
   } catch (e) { }
 }
-async function startChapter(i) {
-  AudioSys.init(); $('title').style.display = 'none'; resetWorld(); G.cash = 2000; $('fade').style.opacity = 1; G.running = true; Music.set(null);
-  try { await CHAPTERS[i].fn(); } catch (e) { console.error(e); }
+async function startChapter(i, part = 0) {
+  G.run++; keyListeners.clear(); G.locked = 0; G.paused = false; hideSub(); G.pauseKey = null; AudioSys.init(); $('title').style.display = 'none'; resetWorld(); G.cash = 2000; $('fade').style.opacity = 1; G.running = true; Music.set(null);
+  if (!part) { const sn = readSnap(); if (sn && sn.key === CHAPTERS[i].key) localStorage.removeItem('nn_snap'); }
+  try { await CHAPTERS[i].fn(part); } catch (e) { console.error(e); }
 }
 function showTitle() {
   G.running = false; hud(false); letterbox(false);
@@ -676,7 +735,8 @@ function showTitle() {
   const btn = (label, fn, cls = '') => { const el = document.createElement('button'); el.innerHTML = label; el.className = cls; el.onclick = () => { AudioSys.init(); AudioSys.sfx.blip(); fn(); }; b.appendChild(el); return el; };
   const main = () => {
     b.innerHTML = '';
-    if (savedI >= 0) btn(`Continue <span class="bsub">${CHAPTERS[savedI].name} · ${CHAPTERS[savedI].sub}</span>`, () => startChapter(savedI), 'primary');
+    const sn = readSnap(), part = savedI >= 0 && sn && sn.key === savedKey ? sn.n : 0;
+    if (savedI >= 0) btn(`Continue <span class="bsub">${CHAPTERS[savedI].name} · ${CHAPTERS[savedI].sub}${part ? ' · checkpoint' : ''}</span>`, () => startChapter(savedI, part), 'primary');
     btn('New Game', () => { if (savedI > 0 && !confirm('Start again from the Prologue? Unlocked chapters stay unlocked.')) return; startChapter(0); }, savedI < 0 ? 'primary' : '');
     btn('Chapters', chapters);
     btn('Settings', settings);

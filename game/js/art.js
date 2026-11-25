@@ -11,6 +11,7 @@ const LOOKS = {
   arjun_home:  { skin: '#c48a60', hair: '#17110d', shirt: '#4a6fa5', lower: 'pants', lowerColor: '#30384f', mustache: false },
   arjun_work:  { skin: '#c48a60', hair: '#17110d', shirt: '#eef2f7', lower: 'pants', lowerColor: '#262a33', collar: '#c7ced8' },
   arjun_travel:{ skin: '#c48a60', hair: '#17110d', shirt: '#3d6f8f', lower: 'pants', lowerColor: '#34405c' },
+  arjun_white: { skin: '#c48a60', hair: '#17110d', shirt: '#f4f1e8', lower: 'mundu', lowerColor: '#f6f2e6' },
   arjun_mundu: { skin: '#c48a60', hair: '#17110d', shirt: '#6f8f5a', lower: 'mundu', lowerColor: '#f6f2e6' },
   ammachi:  { skin: '#b37a55', hair: '#dcd8d0', bun: true, shirt: '#f8f5ee', lower: 'mundu', lowerColor: '#fbf8f0', border: '#d9b45a', neriyathu: '#f3ecd8' },
   jomon:    { skin: '#a96f48', hair: '#120d0a', shirt: '#b59a66', lower: 'pants', lowerColor: '#9c8455', mustache: true },
@@ -25,6 +26,7 @@ function drawPerson(c, x, y, L, dir = 'down', walk = 0, moving = false, talking 
   const sw = moving ? Math.sin(walk) * 3 : 0;
   const bob = moving ? Math.abs(Math.sin(walk)) * 1.2 : 0;
   const side = dir === 'left' || dir === 'right', sx = dir === 'left' ? -1 : 1;
+  const emo = typeof talking === 'string' ? talking : null, seed = Math.round(x * 0.37 + y * 0.11) % 17, gt = G.t;
   c.save(); c.translate(Math.round(x), Math.round(y));
   shade(c, 0, 0, 10, 4);
   c.translate(0, -bob + (sitting ? 5 : 0));
@@ -44,6 +46,8 @@ function drawPerson(c, x, y, L, dir = 'down', walk = 0, moving = false, talking 
     if (L.check) { c.strokeStyle = 'rgba(255,255,255,.25)'; c.lineWidth = 1; for (let i = -6; i <= 6; i += 4) { c.beginPath(); c.moveTo(i, -15); c.lineTo(i * 1.2, -2); c.stroke(); } c.beginPath(); c.moveTo(-8, -8); c.lineTo(8, -8); c.stroke(); }
     if (L.border) { c.fillStyle = L.border; c.fillRect(-8.5, -3.2, 17, 1.6); }
   }
+  // breathing: the upper body is never completely still
+  if (!moving) c.translate(0, Math.sin(gt * 1.9 + seed) * 0.45 + (emo === 'cry' ? Math.sin(gt * 13) * 0.5 : emo === 'happy' ? -Math.abs(Math.sin(gt * 6)) * 0.8 : 0));
   // arms (behind)
   const arm = (ax, oy) => { c.fillStyle = L.shirt || L.skin; rr(c, ax, -25 + oy, 4, 6, 2); c.fillStyle = L.skin; rr(c, ax + 0.3, -20 + oy, 3.4, 8, 2); };
   if (side) arm(-2 - sw * 0.8 * sx, 0);
@@ -70,15 +74,23 @@ function drawPerson(c, x, y, L, dir = 'down', walk = 0, moving = false, talking 
   else { c.beginPath(); c.arc(hx, -34.2, 7.9, Math.PI, 0); c.fill(); c.fillRect(hx - 7.9, -34.5, 2.2, 4); c.fillRect(hx + 5.7, -34.5, 2.2, 4); }
   if (dir !== 'up') {
     c.fillStyle = '#1b1210';
-    if (side) circle(c, hx + sx * 4.2, -32.5, 1.05);
-    else { circle(c, hx - 2.8, -32.5, 1.05); circle(c, hx + 2.8, -32.5, 1.05); }
+    const eyes = side ? [hx + sx * 4.2] : [hx - 2.8, hx + 2.8], blink = (gt * 0.29 + seed * 0.137) % 1 < 0.035 || emo === 'cry' && Math.sin(gt * 2.2) > -0.2;
+    for (const ex of eyes) {
+      if (blink || emo === 'happy' && Math.sin(gt * 3) > 0.2) { c.strokeStyle = '#1b1210'; c.lineWidth = 0.9; c.beginPath(); if (emo === 'happy') c.arc(ex, -32, 1.4, Math.PI, 0); else { c.moveTo(ex - 1.4, -32.3); c.lineTo(ex + 1.4, -32.3); } c.stroke(); }
+      else { circle(c, ex, -32.5, emo === 'shock' ? 1.5 : emo === 'sad' ? 0.9 : 1.05); }
+      if (emo === 'shock' || emo === 'sad' || emo === 'cry') { c.strokeStyle = L.hair === '#e4e1da' || L.hair === '#dcd8d0' ? '#8a8078' : '#1b1210'; c.lineWidth = 0.8; const k = side ? -sx : (ex < hx ? 1 : -1), lift = emo === 'shock' ? -1 : 0; c.beginPath(); c.moveTo(ex - 1.8, -35 + lift + (emo === 'shock' ? 0 : k * 0.6)); c.lineTo(ex + 1.8, -35 + lift - (emo === 'shock' ? 0 : k * 0.6)); c.stroke(); }
+      if (emo === 'cry') { const ph = (gt * 0.8 + (ex > hx ? 0.5 : 0)) % 1; c.fillStyle = `rgba(150,210,240,${0.9 * (1 - ph)})`; ellipse(c, ex, -30.6 + ph * 5, 0.8, 1.2); c.fillStyle = '#1b1210'; }
+    }
     if (L.beard) { c.fillStyle = L.beard; c.beginPath(); c.arc(hx + (side ? sx * 2 : 0), -30, 5.5, 0.1 * Math.PI, 0.9 * Math.PI); c.fill(); }
     if (L.mustache) { c.fillStyle = L.hair === '#e4e1da' ? '#cfcac0' : '#1b1210'; c.fillRect(hx + (side ? sx * 2 : -2.6), -29.6, side ? 3.4 : 5.2, 1.3); }
-    if (talking) { const o = (Math.sin(G.t * 22) + 1) * 0.6 + 0.3; c.fillStyle = '#5a2620'; ellipse(c, hx + (side ? sx * 3.5 : 0), -27.8, 1.5, o); }
+    if (talking) {
+      const o = ((Math.sin(gt * 17) + Math.sin(gt * 11.3 + 1)) * 0.5 + 1) * 0.6 + 0.25, mx = hx + (side ? sx * 3.5 : 0); c.fillStyle = '#5a2620';
+      if (emo === 'happy') { c.beginPath(); c.arc(mx, -28.6, 2.3, 0.1, Math.PI - 0.1); c.fill(); } else ellipse(c, mx, -27.8, emo === 'shock' ? 1.3 : 1.5, emo === 'shock' ? o + 0.6 : o);
+    }
   }
   c.restore();
 }
-function npcDraw(lookKey) { return (c, o) => drawPerson(c, o.x, o.y, LOOKS[lookKey], o.dir || 'down', o.walk || 0, !!o.moving, G.speaking === o.voice, !!o.sitting); }
+function npcDraw(lookKey) { return (c, o) => drawPerson(c, o.x, o.y, LOOKS[lookKey], o.dir || 'down', o.walk || 0, !!o.moving, o.voice && G.speaking === o.voice && (G.emotion || true), !!o.sitting); }
 
 function drawHen(c, h) {
   const step = h.walk ? Math.sin(h.walk) * 1.5 : 0;

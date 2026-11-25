@@ -68,6 +68,10 @@ The API key is read from `.env`, which is listed in `.gitignore`. The game never
 - `game/js/story.js`: the chapters, the fishing, cooking and crafting systems, and the title screen
 - `game/js/audio.js`: the mixer: every voice and recording is levelled when it loads, dialogue ducks everything else, and a limiter with a fixed ceiling keeps sudden loud sounds out
 - `game/js/soundscape.js`: area soundscapes (river, garden, paddy, junction, school, pond, forest, mill, house, night...) and the radios
+- `game/js/life.js`: villagers, children, a cyclist, the dog, egrets, butterflies and fireflies
+- `game/js/touch.js`: on-screen controls for phones and tablets
+- `tools/qa-bot.js`: plays the whole game with real key presses and reports problems
+- `docs/ISSUES.md`: the issue tracker
 - `tools/generate-sounds.js`: generates the area loops and effects with ElevenLabs Sound Effects
 - `game/js/ch4.js`: Chapter 4: the scooter, the football match, Balan's tea shop, the library and the newspaper reveal
 - `game/js/ch5.js`: Chapter 5: the mill path, bridge, mill, locked room, radio shop, cassette and envelope

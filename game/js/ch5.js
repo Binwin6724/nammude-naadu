@@ -47,7 +47,7 @@ addObj('village', { x: 38.6, y: 33.6, w: 5, h: 3.4, sortY: 37, occ: [38.2, 33.4,
   sign(c, o.x + 20, o.y + 36, o.w - 40, 'കബീർ ആക്രിക്കട', 'KABEER SCRAP', '#5a2a1a');
 } });
 addObj('village', Object.assign(hooked('kabeer'), { id: 'kabeer', npc: true, x: 37.8 * T, y: 38.4 * T, dir: 'right', voice: 'kabeer', draw: npcDraw('kabeer') }));
-const SCRAP = [[39.3, 38.2], [41.2, 37.9], [43.2, 38.3], [40.1, 40.1], [42.4, 40.2]];
+const SCRAP = [[39.4, 38.9], [41.4, 38.8], [43.4, 38.9], [40.3, 40.6], [42.5, 40.6]];
 const SCRAP_NOTE = [
   'A sewing machine with its belt still on. Too long, and round like a rope.',
   'Bicycle tubes, a burst pressure cooker, the back half of a ceiling fan. No belt.',
@@ -76,7 +76,7 @@ addObj('village', { x: 35, y: 53, w: 2, h: 0.8, label: 'Take the old mill road',
   await goto('millpath', 1.2, 8.6, 'right');
 } });
 // the envelope on the doorstep
-addObj('village', Object.assign(hooked('envelope', { visible: () => !!S.envelopeOn }), { x: 21.75, y: 24.0, w: 0.6, h: 0.5, sortY: 23.4, draw(c, o) { shade(c, o.x + 9, o.y + 12, 10, 3); c.fillStyle = '#d8c08a'; c.fillRect(o.x, o.y, 20, 13); c.strokeStyle = '#a88a52'; c.lineWidth = 1; c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(o.x + 10, o.y + 7); c.lineTo(o.x + 20, o.y); c.stroke(); } }));
+addObj('village', Object.assign(hooked('envelope', { visible: () => !!S.envelopeOn }), { x: 22.5, y: 24.05, w: 0.6, h: 0.5, sortY: 23.4, draw(c, o) { shade(c, o.x + 9, o.y + 12, 10, 3); c.fillStyle = '#d8c08a'; c.fillRect(o.x, o.y, 20, 13); c.strokeStyle = '#a88a52'; c.lineWidth = 1; c.beginPath(); c.moveTo(o.x, o.y); c.lineTo(o.x + 10, o.y + 7); c.lineTo(o.x + 20, o.y); c.stroke(); } }));
 
 // ======================= THE MILL PATH =======================
 const K_VEG = [[4.6, 1], [9.8, 2], [17.2, 3], [29.6, 4]], K_TREES = [[13.2, 'lever'], [26, 'rope']];
@@ -486,7 +486,7 @@ function sceneEnvelope(c, W, Hh, t) {
 {
   const _shed5 = shedAct;
   shedAct = async function () {
-    if (active('k_sickle') && !has('sickle')) { give('sickle'); done('k_sickle'); await think('The arival, still sharp from the farm. It hangs where he always hung it.', 2400); return; }
+    if (active('k_sickle') && !has('sickle')) { give('sickle'); done('k_sickle'); await think('The arivaal, still sharp from the farm. It hangs where he always hung it.', 2400); return; }
     return _shed5();
   };
   const _groc5 = grocerAct;
@@ -532,7 +532,7 @@ function targetFor5(id) {
     case 'k_thomas': return ['radioshop', 5, 3.8];
     case 'k_belt': return S.metKabeer ? N5(SCRAP.filter((_, i) => !S['scrap' + i]), 'village') : VV(37.8, 38.6);
     case 'k_repair': return ['radioshop', 5, 3.8];
-    case 'k_door': return VV(22.05, 24.4);
+    case 'k_door': return G.map.id === 'house' ? VV(22.05, 24.4) : VV(22.8, 24.5);
   }
   return null;
 }
@@ -553,11 +553,11 @@ function doors5() {
 }
 
 // ======================= CHAPTER 5 — THE LOCKED ROOM =======================
-async function chapter5() {
+async function chapter5(part = 0) {
   save('ch5'); G.radioMute = false;
   Object.assign(DOORS, doors5());
   const wasCash = G.cash; resetWorld(); G.cash = wasCash < 2000 ? Math.max(wasCash, 200) : 480;
-  G.chapter = 'Chapter 5 · The Locked Room'; G.day = 7; G.time = 7.6; G.timeRate = 0; G.timeMax = 12.5; G.rain = 0;
+  G.chapter = 'Chapter 5 · The Locked Room'; G.day = 10; G.time = 7.6; G.timeRate = 0; G.timeMax = 12.5; G.rain = 0;
   AudioSys.setRain(0); AudioSys.setHum(0); AudioSys.setAmbience({ birds: true, night: false, frogs: false });
   Object.assign(S, { houseLights: true, bedMade: true, bulbFixed: true, unpacked: true, boxFound: true, win0: true, win1: true, dust0: true, dust1: true, dust2: true, kunOn: true, cocoOn: 0, swept: true, sawShirts: true,
     compostBin: true, pumpFixed: true, pumpWeeds: true, sickleSharp: true, debt: 85000, libOpen: true, libClean: true, shelfFixed: true, teaOpen: true, meeraV: true, exhibit: true, huskOn: true,
@@ -568,13 +568,14 @@ async function chapter5() {
   G.player.outfit = 'mundu'; give('key', 1, true); give('photo1996', 1, true); give('knife', 1, true);
   G.hens = [makeHen(28.5, 18, COOP_ZONE), makeHen(30.5, 19, COOP_ZONE, '#e8dcc6'), makeHen(32, 17.8, COOP_ZONE), makeHen(29.4, 20, COOP_ZONE, '#b5532e', true)];
   CANOE.x = 62.9 * T; CANOE.y = 25.4 * T; CANOE.rower = false;
-  AUTO.x = 24.4 * T; AUTO.y = 31.4 * T; AUTO.heading = Math.PI; AUTO.hidden = false; AUTO.passenger = false; G.entities = [CANOE, AUTO];
+  AUTO.x = 36 * T; AUTO.y = 25.4 * T; AUTO.heading = -Math.PI / 2; AUTO.hidden = false; AUTO.passenger = false; G.entities = [CANOE, AUTO];
   const kun = vObj('kun'); kun.x = 54.6 * T; kun.y = 26.6 * T; kun.sitting = true; kun.dir = 'down';
   const sasi = vObj('sasi'); sasi.x = 55.1 * T; sasi.y = 4.4 * T; sasi.dir = 'down';
   const mee = vObj('meera'); mee.x = 28.6 * T; mee.y = 4.45 * T; mee.dir = 'down';
   const jom = vObj('jomon'); const lm = G.maps.library.objs.find(o => o.id === 'lmeera'); if (lm) { lm.x = 9.2 * T; lm.y = 3.4 * T; }
   setAmm('kitchen');
   hud(false); await fadeOut(10);
+  if (part < 1) {
   await card('Chapter 5', 'Poottiya Muri', 'പൂട്ടിയ മുറി', 'The Locked Room', 3800);
 
   // Morning, the veranda: whose key is this?
@@ -585,12 +586,13 @@ async function chapter5() {
     letterbox(true);
     await think('Arjun could not sleep. All night, one thing kept turning in his hand: the rusted key.', 3200);
     await say('c5_arj1'); await say('c5_jom1'); await say('c5_arj2');
-    await think('Jomon looks toward the south, where the lane disappears into the trees.', 2400);
+    jom.dir = 'down'; await think('Jomon looks toward the south, where the lane disappears into the trees.', 2400); jom.dir = 'left';
     await say('c5_jom2'); await say('c5_jom3'); await say('c5_arj3');
     letterbox(false);
     toast("Ammachi sold the cheera and chillies: + ₹650"); G.cash += 650;
   });
-  (async () => { await moveTo(jom, 23.8, 30.6, 80); S.jomonOn = false; AUTO.passenger = false; AudioSys.sfx.engine(); await moveTo(AUTO, 24.4, 34.5, 60); AUTO.hidden = true; })();
+  // Jomon walks out by the east gate and drives off up the lane
+  (async () => { await moveTo(jom, 28, 25.4, 80); await moveTo(jom, 35, 25.2, 80); S.jomonOn = false; AudioSys.sfx.engine(); await moveTo(AUTO, 36, 6.05, 90); await moveTo(AUTO, 70, 6.05, 110); AUTO.hidden = true; })();
   G.timeRate = 0.003;
 
   // Mission 12 — preparation
@@ -603,6 +605,10 @@ async function chapter5() {
   await waitAll();
   await torchReady();
   S.millRoad = true;
+  }
+  await checkpoint('ch5', 1, part);
+  if (part < 2) {
+  if (part === 1) setHook('meera', 'Talk to Meera', async () => think("Meera: 'The exhibition opens next week. If you find anything about the mill, anything at all, show me first.'", 3000), true);
   setObj('Mission 12 — Reach the abandoned mill', [['k_go', 'Take the old mill road (south end of the lane)']]);
   await until(() => G.map.id === 'millpath' && G.locked === 0);
   done('k_go'); Music.set('tension');
@@ -619,14 +625,19 @@ async function chapter5() {
   S.roomDone = true; take('key');
   await scene(async () => { await think('The recorder is dead. But Appachan walked all this way, with his bad knee, to hide it here. It must say something.', 3600); });
 
+  }
   // Mission 13 — the recorder
+  await checkpoint('ch5', 2, part);
+  if (part === 2) { S.millRoad = true; }
   S.radioOpen = true; G.timeMax = 16.8;
   setObj('Mission 13 — Repair the cassette recorder', [['k_thomas', "Take the recorder to Thomas Chettan's radio shop (by the lane, south of the library)"]]);
   setHook('thomas', 'Talk to Thomas Chettan', async () => {
     S.metThomas = true; await say('c5_tho1'); await say('c5_arj13'); S.recOnBench = true; await say('c5_tho2'); await say('c5_tho3'); give('oldbelt'); await say('c5_tho4'); take('recorder'); done('k_thomas');
   });
   await until(() => isDone('k_thomas') && G.locked === 0); Music.set('day');
-  setObj('Mission 13 — Repair the cassette recorder', [['k_batt2', 'Buy batteries (Vasu Stores, ₹60)'], ['k_belt', "Find a matching belt in Kabeer's scrap yard (₹40)"], ['k_repair', 'Repair the recorder with Thomas Chettan']]);
+  setObj('Mission 13 — Repair the cassette recorder', [['k_batt2', 'Buy batteries (Vasu Stores, ₹60)'], ['k_belt', "Find a matching belt in Kabeer's scrap yard (₹40)"], ['k_repair', 'Repair the recorder with Thomas Chettan']], () => [has('crowbar') ? 'On the way: return the crowbar to Sasi Chettan' : '', !S.injected ? 'On the way: get that injection at Latha Medicals' : ''].filter(Boolean).join('<br>'));
+  if (has('crowbar')) setHook('sasi', 'Return the crowbar', async () => { take('crowbar'); renderObj(); await think("Sasi Chettan wipes the crowbar and hangs it up. 'No treasure? Never mind. Nobody digs on the first day and strikes gold.'", 2800); });
+  setHook('latha', 'Get the injection', async () => { S.injected = true; AudioSys.sfx.blip(); renderObj(); await think("Latha Chechi looks at the bandage, then at him. 'A rusty nail. I knew it.' She does not ask where. She does not charge him either.", 3200); });
   setHook('kabeer', 'Talk to Kabeer', async () => { S.metKabeer = true; await say('c5_kab1'); });
   gate('thomas', 'Give Thomas Chettan the parts', () => has('belt') && has('batteries'), "Thomas: 'Batteries and the belt, mone. Both. Then we will wake it up.'", async () => {
     await say('c5_tho5'); await hold('Fitting the belt over the pulleys', 1800, AudioSys.sfx.knock); await hold('Putting in the batteries', 1000, AudioSys.sfx.knock); take('belt'); take('batteries'); take('oldbelt');
@@ -653,6 +664,7 @@ async function chapter5() {
   G.time = 19.4; G.timeRate = 0; AudioSys.setAmbience({ night: true, birds: false, frogs: true });
   S.kunOn = false; S.jomonOn = false; S.meeraV = false; S.verandaLight = true; S.thomasOut = false; setAmm('kitchen'); G.flashlight = false;
   if (S.scooter) Object.assign(S.scooter, { x: 25.4 * T, y: 25.9 * T, map: 'village' });
+  for (const k of ['ledger', 'fatherphoto', 'recorder', 'crowbar', 'sickle', 'rope', 'husk']) G.inv[k] = 0; renderInv();
   await goto('house', 13, 12.4, 'down', false); Music.set('night');
   await card('', 'That evening', '', '', 1800); await fadeIn(1200);
   G.radioMute = false;
@@ -680,6 +692,7 @@ async function chapter5() {
   await until(() => S.envDone && G.locked === 0);
   await fadeOut(2200); clearObj(); hud(false); G.running = false; G.day = 0; ITEM.recorder = 'Cassette recorder (broken)';
   AudioSys.setAmbience({ night: false, frogs: false }); Music.set('title');
+  localStorage.removeItem('nn_snap');
   await card('End of Chapter 5', 'തുടരും', 'To be continued', 'Chapter 6 — A Village Full of Stories', 6000);
   showTitle();
 }

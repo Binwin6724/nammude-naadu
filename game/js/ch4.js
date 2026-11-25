@@ -62,6 +62,7 @@ function drawRider(c, p) {
 let rideSnd = null;
 // Appachan's scooter: one recorded engine loop, its pitch following the throttle
 function rideSound(on, speed = 0) {
+  if (!isFinite(speed)) speed = 0;
   const ctx = AudioSys.ctx(); if (!ctx) return;
   if (on && !rideSnd) {
     const r = rideSnd = { g: ctx.createGain(), lp: ctx.createBiquadFilter() }; r.lp.type = 'lowpass'; r.lp.frequency.value = 900; r.g.gain.value = 0; r.lp.connect(r.g); r.g.connect(AudioSys._dbg().master);
@@ -76,7 +77,7 @@ function horn() { AudioSys.sfx.horn(); }
 function rideSpeed() { const sc = S.scooter; if (!sc || sc.fuel <= 0) return 60; return keys['shift'] ? 250 : 200; }
 function onRide(dist) {
   const sc = S.scooter; if (!sc) return;
-  const before = sc.fuel; sc.fuel = Math.max(0, sc.fuel - dist / (T * 150));
+  const before = sc.fuel; sc.fuel = Math.max(0, sc.fuel - dist / (T * 450));
   if (before > 0.15 && sc.fuel <= 0.15) toast('Petrol is running low — Sasi Motors sells petrol.');
   if (before > 0 && sc.fuel <= 0) toast('Out of petrol! Push it to Sasi Motors at the junction.');
 }
@@ -593,11 +594,12 @@ function targetFor4(id) {
 }
 
 // ======================= CHAPTER 4 — PAZHAYA KOOTTUKAAR =======================
-async function chapter4() {
+async function chapter4(part = 0) {
   save('ch4');
+  LIB_HEAPS.forEach(([x, y], i) => { const o = G.maps.library.objs.find(q => q.id === 'heap' + i); if (o) Object.assign(o, { x: x * T, y: y * T, h: 1.2 * T }); });
   Object.assign(DOORS, { 'library>village': [9, 11.5], 'village>library': [42.9, 26.2], 'teashop>village': [6, 7.6], 'house>library': [12.25, 15.7] });
   const wasCash = G.cash; resetWorld(); G.cash = wasCash < 2000 ? wasCash : 1035;
-  G.chapter = 'Chapter 4 · Old Friends'; G.day = 5; G.time = 7.4; G.timeRate = 0.004; G.timeMax = 16.7; G.rain = 0;
+  G.chapter = 'Chapter 4 · Old Friends'; G.day = 8; G.time = 7.4; G.timeRate = 0.004; G.timeMax = 16.7; G.rain = 0;
   AudioSys.setRain(0); AudioSys.setHum(0); AudioSys.setAmbience({ birds: true, night: false, frogs: false });
   Object.assign(S, { houseLights: true, bedMade: true, bulbFixed: true, unpacked: true, boxFound: true, win0: true, win1: true, dust0: true, dust1: true, dust2: true, kunOn: true, cocoOn: 0, swept: true,
     compostBin: true, pumpFixed: true, pumpWeeds: true, sickleSharp: true, debt: 85000,
@@ -614,6 +616,7 @@ async function chapter4() {
   const jom = vObj('jomon'), mee = vObj('meera');
   setAmm('kitchen');
   hud(false); await fadeOut(10);
+  if (part < 1) {
   await card('Chapter 4', 'Pazhaya Koottukaar', 'പഴയ കൂട്ടുകാർ', 'Old Friends', 3800);
 
   // Jomon arrives
@@ -661,8 +664,13 @@ async function chapter4() {
   done('ride'); horn();
   await scene(() => think("Meera laughs and waves from the school gate. 'Mathachan's scooter, alive again!'", 3000));
   await idle();
+  setHook('meera', 'Talk to Meera', async () => think("Meera: 'A match at five? I can see the ground from the staff room window. I will be counting your goals.'", 3000), true);
+  }
 
   // Mission 10 — football
+  await checkpoint('ch4', 1, part);
+  if (part === 1) setHook('meera', 'Talk to Meera', async () => think("Meera: 'A match at five? I can see the ground from the staff room window. I will be counting your goals.'", 3000), true);
+  if (part < 2) {
   await scene(async () => { AudioSys.sfx.ring(); toast('📱 Jomon calling'); await sleep(1200); await say('c4_jom6'); });
   S.shajiV = true; S.binuV = true; jom.x = 16.4 * T; jom.y = 3.1 * T; jom.dir = 'down';
   AUTO.x = 20.5 * T; AUTO.y = 6.05 * T;
@@ -708,11 +716,13 @@ async function chapter4() {
     await fadeOut(1600); letterbox(false); G.player.sit = false; S.teaServed = false; S.teaOpen = true;
   });
 
-  // Day 6 — the library
-  G.day = 6; G.time = 8; G.timeRate = 0.004; G.timeMax = 16; S.meeraV = true; mee.x = 41.6 * T; mee.y = 26.7 * T; mee.dir = 'right'; S.exhibit = false;
+  // Two days later — the library
+  G.day = 9; G.time = 8; G.timeRate = 0.004; G.timeMax = 16; S.meeraV = true; mee.x = 41.6 * T; mee.y = 26.7 * T; mee.dir = 'right'; S.exhibit = false;
   if (S.scooter.fixed) { Object.assign(S.scooter, { x: 25.4 * T, y: 25.9 * T, map: 'village' }); }
   await goto('village', 22, 24.9, 'down', false); Music.set('morning');
-  await card('', 'Day 6', '', 'Meera has the library key.', 2600); await fadeIn(1300);
+  await card('', 'Day 9', '', 'Meera has the library key.', 2600); await fadeIn(1300);
+  }
+  await checkpoint('ch4', 2, part);
   setObj('Mission 11 — Search the library', [['library', 'Meet Meera at the library (east of the lane, past the paddy fields)']]);
   clearHook('meera');
   setHook('libDoor', 'Open the library with Meera', async () => {

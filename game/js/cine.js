@@ -14,8 +14,8 @@ async function pan(points, secs) {
   const cam = { x: points[0][0] * T, y: points[0][1] * T + 16 };
   G.camTarget = cam; snapCam();
   for (let i = 1; i < points.length; i++) {
-    const [ax, ay] = [cam.x, cam.y], bx = points[i][0] * T, by = points[i][1] * T + 16, dur = (secs[i - 1] || 4) * 1000, t0 = performance.now();
-    await new Promise(r => { const f = now => { const k = Math.min(1, (now - t0) / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cam.x = ax + (bx - ax) * e; cam.y = ay + (by - ay) * e; k < 1 ? requestAnimationFrame(f) : r(); }; requestAnimationFrame(f); });
+    const [ax, ay] = [cam.x, cam.y], bx = points[i][0] * T, by = points[i][1] * T + 16, dur = (secs[i - 1] || 4) * 1000, run = G.run; let gone = 0, last = performance.now();
+    await new Promise(r => { const f = now => { if (run !== G.run) return; if (!G.paused) gone += Math.min(100, Math.max(0, now - last)); last = now; const k = Math.min(1, gone / dur), e = k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2; cam.x = ax + (bx - ax) * e; cam.y = ay + (by - ay) * e; k < 1 ? requestAnimationFrame(f) : r(); }; requestAnimationFrame(f); });
   }
 }
 // Full-screen painted scene (replaces the world render while it runs)

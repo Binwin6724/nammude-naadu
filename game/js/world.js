@@ -65,7 +65,7 @@ defMap('flat', {
 });
 
 // ======================= OFFICE =======================
-const officeWorkers = [[11.2, 3.2, 'up'], [3.5, 7.2, 'up'], [13.8, 7.2, 'up'], [9, 7.2, 'up']];
+const officeWorkers = [[12.6, 4.2, 'up'], [3.6, 7.2, 'up'], [12.6, 7.2, 'up'], [7.6, 7.2, 'up']];
 defMap('office', {
   w: 18, h: 10, bg: '#0b0d12',
   indoorDark: () => 0.05,
@@ -81,7 +81,10 @@ defMap('office', {
       x, y, w: 3.2, h: 1.1, solid: true, ...(i === 0 ? hooked('desk') : {}),
       draw(c, o) { c.fillStyle = '#e9e6df'; rr(c, o.x, o.y, o.w, o.h, 3); c.fillStyle = '#2a2d33'; rr(c, o.x + o.w / 2 - 14, o.y + 2, 28, 18, 2); c.fillStyle = i === 0 && S.typing ? '#9fd3ff' : '#3c5370'; rr(c, o.x + o.w / 2 - 12, o.y + 4, 24, 13, 1); c.fillStyle = '#cfcac0'; rr(c, o.x + o.w / 2 - 10, o.y + 24, 20, 6, 1); },
     })),
-    ...officeWorkers.map(([x, y, d], i) => ({ npc: true, x: x * T, y: y * T + 18, dir: d, draw: (c, o) => drawPerson(c, o.x, o.y, { skin: ['#b8805a', '#d6a27a', '#8a5a3c', '#c58e66'][i], hair: '#1a1410', shirt: ['#d77', '#7a9', '#99c', '#cb8'][i], lower: 'pants', lowerColor: '#333' }, 'up', 0, false, false, true) })),
+    ...officeWorkers.map(([x, y, d], i) => ({ npc: true, x: x * T, y: y * T + 18, dir: d, draw: (c, o) => { c.fillStyle = '#23262d'; rr(c, o.x - 9, o.y - 10, 18, 13, 4); c.fillRect(o.x - 1.5, o.y + 2, 3, 5); drawPerson(c, o.x, o.y, { skin: ['#b8805a', '#d6a27a', '#8a5a3c', '#c58e66'][i], hair: '#1a1410', shirt: ['#d77', '#7a9', '#99c', '#cb8'][i], lower: 'pants', lowerColor: '#333' }, 'up', 0, false, false, true); c.fillStyle = '#2d313a'; rr(c, o.x - 8, o.y - 13, 16, 12, 4); } })),
+    { x: 0.5, y: 1.3, w: 0.9, h: 0.9, solid: true, draw(c, o) { c.fillStyle = '#d8e4ee'; rr(c, o.x + 4, o.y - 18, 18, 22, 5); c.fillStyle = '#9fd0ea'; rr(c, o.x + 6, o.y - 16, 14, 14, 4); c.fillStyle = '#eef2f5'; rr(c, o.x + 2, o.y + 2, 22, 26, 3); c.fillStyle = '#c8402e'; c.fillRect(o.x + 7, o.y + 8, 3, 3); c.fillStyle = '#3a7ac0'; c.fillRect(o.x + 16, o.y + 8, 3, 3); } },
+    { x: 16.4, y: 8.1, w: 1.2, h: 0.9, solid: true, draw(c, o) { c.fillStyle = '#c8ccd2'; rr(c, o.x, o.y, o.w, o.h, 3); c.fillStyle = '#8a9098'; rr(c, o.x + 4, o.y - 8, o.w - 8, 12, 2); c.fillStyle = '#fff'; c.fillRect(o.x + 9, o.y - 2, 18, 4); } },
+    { x: 0.6, y: 8.2, w: 1, h: 0.8, solid: true, draw(c, o) { c.fillStyle = '#d8d2c6'; rr(c, o.x + 6, o.y + 8, 20, 16, 3); drawBush(c, o.x + 16, o.y + 10, '#4c8a3e', 12); } },
     hooked('shibu', { npc: true, x: 9.2 * T, y: 4.9 * T, dir: 'left', voice: 'colleague', draw: npcDraw('shibu') }),
     { x: 15.5, y: 1.2, w: 1.2, h: 1, solid: true, draw(c, o) { drawBush(c, o.x + 18, o.y + 26, '#4c8a3e', 13); } },
     { x: 8, y: 9.55, w: 1.8, h: 0.45, draw(c, o) { c.fillStyle = '#8fa3b8'; c.fillRect(o.x, o.y, o.w, o.h); } },
@@ -89,7 +92,7 @@ defMap('office', {
 });
 
 // ======================= THE ANCESTRAL HOUSE (interior) =======================
-const AMM_POS = { kitchen: [18.6, 2.9, 'down'], hall: [17.6, 14.2, 'left'], table: [16.1, 13.75, 'up'], none: null };
+const AMM_POS = { kitchen: [20.7, 3.1, 'left'], hall: [17.6, 14.2, 'left'], table: [16.1, 13.75, 'up'], none: null };
 function setAmm(loc) {
   S.ammLoc = loc; const o = G.maps.house.objs.find(o => o.id === 'amm'); const p = AMM_POS[loc];
   if (p) { o.x = p[0] * T; o.y = p[1] * T; o.dir = p[2]; o.sitting = loc === 'table'; }
@@ -193,7 +196,7 @@ defMap('house', {
     { x: 0.5, y: 10.3, w: 0.7, h: 0.9, visible: () => !has('broom') && !S.swept, draw(c, o) { c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; c.beginPath(); c.moveTo(o.x + 10, o.y); c.lineTo(o.x + 12, o.y + 18); c.stroke(); c.fillStyle = '#c9b070'; c.beginPath(); c.moveTo(o.x + 6, o.y + 16); c.lineTo(o.x + 18, o.y + 16); c.lineTo(o.x + 20, o.y + 28); c.lineTo(o.x + 4, o.y + 28); c.fill(); },
       label: 'Take the broom (choolu)', act: async () => give('broom') },
     memObj('stick', 10.5, 14.6, (c, o) => { c.strokeStyle = '#4a2e18'; c.lineWidth = 3; c.lineCap = 'round'; c.beginPath(); c.moveTo(o.x + 6, o.y + 2); c.lineTo(o.x + 12, o.y + 26); c.stroke(); c.beginPath(); c.arc(o.x + 3, o.y + 3, 4, 0, Math.PI); c.stroke(); }),
-    { x: 20.4, y: 10.3, w: 1.6, h: 0.9, solid: true, draw(c, o) { c.fillStyle = '#6b4428'; rr(c, o.x, o.y, o.w, o.h, 2); c.fillStyle = '#2a2a2a'; rr(c, o.x + 8, o.y - 14, 34, 24, 3); c.fillStyle = '#3d4a4a'; rr(c, o.x + 11, o.y - 11, 26, 17, 2); } },
+    { x: 19.35, y: 10.3, w: 1.6, h: 0.9, solid: true, draw(c, o) { c.fillStyle = '#6b4428'; rr(c, o.x, o.y, o.w, o.h, 2); c.fillStyle = '#2a2a2a'; rr(c, o.x + 8, o.y - 14, 34, 24, 3); c.fillStyle = '#3d4a4a'; rr(c, o.x + 11, o.y - 11, 26, 17, 2); } },
     { x: 11.4, y: 15.6, w: 1.8, h: 0.4, draw(c, o) { c.fillStyle = '#5a3a22'; c.fillRect(o.x, o.y, o.w, o.h); c.fillStyle = '#d8b56a'; c.fillRect(o.x + o.w / 2 - 1, o.y + 2, 2, 6); }, ...hooked('frontDoor', { label: () => S.hooks.frontDoor ? S.hooks.frontDoor.label : 'Go outside', when: () => true,
       act: async () => { const h = S.hooks.frontDoor; if (h) { if (!h.keep) delete S.hooks.frontDoor; await h.fn(); return; } await goto('village', 22, 24.9, 'down'); } }) },
   ],
@@ -226,6 +229,7 @@ defMap('village', {
     L.push({ x: 36.4 * T, y: 24 * T, r: 100, a: 0.75, warm: true });
     if (houseLit()) { for (const x of [17.6, 26.2]) L.push({ x: x * T, y: 23.4 * T, r: 60, a: 0.6, warm: true }); }
     if (S.verandaLight) L.push({ x: 22 * T, y: 24 * T, r: 150, a: 0.95, warm: true });
+    if (G.time < 21) { for (const [x, y] of [[41, 32], [40.9, 37.4], [35.7, 4.4]]) L.push({ x: x * T, y: y * T, r: 85, a: 0.7, warm: true }); }
     if (G.time < 21) for (const x of [41, 49]) L.push({ x: x * T, y: 4.4 * T, r: 110, a: 0.8, warm: true });
     L.push({ x: 54.6 * T, y: 26.4 * T, r: 60, a: 0.6, warm: true });
     return L;
@@ -257,7 +261,7 @@ defMap('village', {
     c.fillStyle = '#e9e6da'; c.fillRect(0, 4.7 * T, W, 2); c.fillRect(0, 6.9 * T - 2, W, 2); for (let x = 0; x < W; x += 40) c.fillRect(x, 5.8 * T - 1, 20, 2);
     // laterite lanes
     const lane = (x, y, w, h) => { c.fillStyle = '#b5653f'; c.fillRect(x * T, y * T, w * T, h * T); grain(c, x * T, y * T, w * T, h * T, ['#a3583a', '#c37450', '#8f4a2f'], w * h * 16, 3, x + y); };
-    lane(35, 7, 2, 37); lane(34, 24, 1.2, 2); lane(37, 42, 23, 2); lane(48, 28, 2, 1.2);
+    lane(35, 7, 2, 37); lane(34, 24, 1.2, 2); lane(37, 42, 23, 2); lane(43, 25.8, 7, 1.1); lane(48.2, 26.8, 1.6, 3);
     // compound
     c.fillStyle = 'rgba(120,150,60,.25)'; c.fillRect(10 * T, 12 * T, 24 * T, 24 * T);
     c.fillStyle = '#cdb184'; c.beginPath(); c.ellipse(22 * T, 26.6 * T, 9 * T, 3.2 * T, 0, 0, 6.28); c.fill();
@@ -300,6 +304,9 @@ defMap('village', {
     for (let i = 0; i < 10; i++) drawBushStatic(c, hash(i + 600) * 9 * T, 27.5 * T + hash(i + 700) * 2 * T, i);
   },
   drawDynamicGround(c) {
+    // sunlight on the river, and the water's edge breathing in and out
+    { const dk = darkness(); c.fillStyle = `rgba(220,245,240,${0.10 * (1 - dk)})`; for (let i = 0; i < 46; i++) { const y = 7 * T + hash(i * 2.3) * 47 * T, x = 62.6 * T + hash(i * 5.1) * 9 * T + Math.sin(G.t * 0.7 + i) * 8, k = Math.max(0, Math.sin(G.t * 1.6 + i * 2.1)); if (k > 0.1) ellipse(c, x, y, 9 * k + 3, 1.5); }
+      c.strokeStyle = 'rgba(240,248,240,.5)'; c.lineWidth = 2; c.beginPath(); for (let y = 7 * T; y <= 54 * T; y += 12) { const x = 62.15 * T + Math.sin(y * 0.03 + G.t * 0.8) * 3 + Math.sin(y * 0.011 - G.t * 0.5) * 3; y === 7 * T ? c.moveTo(x, y) : c.lineTo(x, y); } c.stroke(); c.strokeStyle = 'rgba(120,96,60,.35)'; c.lineWidth = 5; c.stroke(); }
     // ripples
     c.strokeStyle = 'rgba(200,235,235,.22)'; c.lineWidth = 1;
     for (let i = 0; i < 30; i++) { const y = 7 * T + ((hash(i) * 47 * T + G.t * 22) % (47 * T)); const x = 62.4 * T + hash(i + 9) * 9 * T; c.beginPath(); c.moveTo(x, y); c.lineTo(x + 14, y); c.stroke(); }
@@ -370,7 +377,7 @@ defMap('village', {
       act: async () => { if (!has('knife')) { await think("Too thick to snap by hand. Appachan's knife should still be in the storage shed."); return; } await hold('Cutting with the vettukathi', 1500, AudioSys.sfx.knock); if (active('stake')) { give('stake'); done('stake'); return; } give('bamboo'); done('bamboo'); } },
     { x: 15.3, y: 16.4, w: 0.6, h: 0.5, visible: () => S.keyGlint, draw(c, o) { const s = (Math.sin(G.t * 5) + 1) / 2; c.fillStyle = `rgba(255,240,180,${0.4 + s * 0.6})`; circle(c, o.x + 9, o.y + 8, 2 + s * 2); c.strokeStyle = `rgba(255,240,180,${s})`; c.beginPath(); c.moveTo(o.x + 1, o.y + 8); c.lineTo(o.x + 17, o.y + 8); c.moveTo(o.x + 9, o.y); c.lineTo(o.x + 9, o.y + 16); c.stroke(); }, label: 'Something is glinting in the mud', act: async () => { S.keyGlint = false; give('key'); done('key'); await say('c2_arj2'); } },
     // ----- Kunjumon's hut -----
-    { x: 52, y: 21.4, w: 5.5, h: 4.4, sortY: 25.8, occ: [51.6, 21.2, 6.3, 4.6], draw(c, o) { wallFace(c, o.x + 6, o.y + 2.2 * T, o.w - 12, 2.2 * T, '#b8a07a'); c.fillStyle = '#2a1a10'; c.fillRect(54 * T, 23.6 * T, 1.1 * T, 1.6 * T); c.fillStyle = '#c4a45a'; c.beginPath(); c.moveTo(o.x - 8, o.y + 2.6 * T); c.lineTo(o.x + o.w + 8, o.y + 2.6 * T); c.lineTo(o.x + o.w - 20, o.y); c.lineTo(o.x + 20, o.y); c.closePath(); c.fill(); c.strokeStyle = '#a4843a'; c.lineWidth = 1; for (let y = o.y + 6; y < o.y + 2.6 * T; y += 4) { c.beginPath(); c.moveTo(o.x, y); c.lineTo(o.x + o.w, y); c.stroke(); } c.lineWidth = 1; } },
+    { x: 52, y: 21.4, w: 5.5, h: 4.4, sortY: 25.8, occ: [51.6, 21.2, 6.3, 4.6], draw(c, o) { wallFace(c, o.x + 6, o.y + 2.2 * T, o.w - 12, 2.2 * T, '#b8a07a'); c.fillStyle = '#2a1a10'; c.fillRect(54 * T, 23.6 * T, 1.1 * T, 1.6 * T); c.fillStyle = '#c4a45a'; c.beginPath(); c.moveTo(o.x - 8, o.y + 2.6 * T); c.lineTo(o.x + o.w + 8, o.y + 2.6 * T); c.lineTo(o.x + o.w - 20, o.y); c.lineTo(o.x + 20, o.y); c.closePath(); c.fill(); c.strokeStyle = '#a4843a'; c.lineWidth = 1; for (let y = o.y + 6; y < o.y + 2.6 * T; y += 4) { const k = (y - o.y) / (2.6 * T), inx = 20 - 28 * k; c.beginPath(); c.moveTo(o.x + inx + 2, y); c.lineTo(o.x + o.w - inx - 2, y); c.stroke(); } c.lineWidth = 1; } },
     { x: 57.4, y: 25.6, w: 1.6, h: 1, sortY: 26.6, draw(c, o) { c.strokeStyle = '#6b4428'; c.lineWidth = 2; c.beginPath(); c.moveTo(o.x, o.y + o.h); c.lineTo(o.x, o.y - 10); c.lineTo(o.x + o.w, o.y - 10); c.lineTo(o.x + o.w, o.y + o.h); c.stroke(); c.strokeStyle = 'rgba(230,230,220,.6)'; c.lineWidth = 0.6; for (let i = 0; i < 9; i++) { c.beginPath(); c.moveTo(o.x + i * 5, o.y - 10); c.lineTo(o.x + i * 5 + 3, o.y + o.h - 4); c.stroke(); } c.lineWidth = 1; } },
     Object.assign(hooked('kunjumon'), { id: 'kun', npc: true, x: 54.6 * T, y: 26.6 * T, dir: 'down', sitting: true, voice: 'kunjumon', visible: () => !!S.kunOn, draw: npcDraw('kunjumon') }),
     // ----- fishing spot -----
@@ -380,7 +387,7 @@ defMap('village', {
     // ----- Appachan's farm -----
     { x: 12, y: 37.2, w: 21, h: 8.4, sortY: 37.2, draw(c) { const left = 6 - [0, 1, 2, 3, 4, 5].filter(i => S['weed' + i]).length; if (!left) return; for (let i = 0; i < 46; i++) { if (hash(i + 77) * 6 > left) continue; const x = (12.6 + hash(i + 11) * 20) * T, y = (37.8 + hash(i + 31) * 7.4) * T; c.strokeStyle = i % 2 ? '#5f8a30' : '#7a9a3a'; c.lineWidth = 1.5; for (let k = 0; k < 4; k++) { c.beginPath(); c.moveTo(x + k * 2, y); c.lineTo(x + k * 2 + Math.sin(G.t + i + k) * 2 - 3 + k * 2, y - 10 - hash(i + k) * 6); c.stroke(); } } } },
     ...FARM_WEEDS.map(([x, y], i) => ({ x: x - 0.6, y: y - 0.4, w: 1.2, h: 0.8, visible: () => !S['weed' + i], draw: (c, o) => drawWeed(c, x * T, y * T, 1.1, i * 7), label: 'Clear the weeds', when: () => active('weeds'),
-      act: async () => { if (!S.sickleSharp) { await think(has('sickle') ? 'This blunt sickle just bends the grass. I should sharpen it on the stone by the well.' : "I can't pull this by hand. Appachan's sickle should be in the shed."); return; } await hold('Cutting with the arival', 1200, AudioSys.sfx.sweep); S['weed' + i] = true; const n = [0, 1, 2, 3, 4, 5].filter(k => S['weed' + k]).length; setObjText('weeds', `Clear the weeds (${n}/6)`); if (n === 6) done('weeds'); } })),
+      act: async () => { if (!S.sickleSharp) { await think(has('sickle') ? 'This blunt sickle just bends the grass. I should sharpen it on the stone by the well.' : "I can't pull this by hand. Appachan's sickle should be in the shed."); return; } await hold('Cutting with the arivaal', 1200, AudioSys.sfx.sweep); S['weed' + i] = true; const n = [0, 1, 2, 3, 4, 5].filter(k => S['weed' + k]).length; setObjText('weeds', `Clear the weeds (${n}/6)`); if (n === 6) done('weeds'); } })),
     ...FARM_BRANCHES.map(([x, y], i) => ({ x: x - 0.5, y: y - 0.4, w: 1, h: 0.6, visible: () => !S['br' + i], draw: (c, o) => drawBranch(c, x * T, y * T, i), label: 'Pick up the fallen branch', when: () => active('branches'),
       act: async () => { S['br' + i] = true; give('branch'); const n = [0, 1, 2, 3].filter(k => S['br' + k]).length; setObjText('branches', `Collect fallen branches (${n}/4)`); if (n === 4) done('branches'); } })),
     ...FARM_FENCE.map(([x, y, w, h, vert], i) => ({ x, y, w, h, draw(c, o) { if (S['fence' + i]) { c.fillStyle = '#8a6a44'; const n = Math.round((vert ? h : w) * 2); for (let k = 0; k <= n; k++) { const px = vert ? o.x + o.w / 2 : o.x + k * T / 2, py = vert ? o.y + k * T / 2 : o.y + o.h / 2; c.fillRect(px - 1.5, py - 9, 3, 10); } c.strokeStyle = '#a07a4a'; c.lineWidth = 2; c.beginPath(); if (vert) { c.moveTo(o.x + o.w / 2, o.y - 5); c.lineTo(o.x + o.w / 2, o.y + o.h - 5); } else { c.moveTo(o.x, o.y + o.h / 2 - 5); c.lineTo(o.x + o.w, o.y + o.h / 2 - 5); } c.stroke(); } else { c.fillStyle = '#5a3f28'; for (let k = 0; k < 3; k++) { c.save(); c.translate(o.x + (vert ? o.w / 2 : 10 + k * 20), o.y + (vert ? 10 + k * 20 : o.h / 2)); c.rotate(0.9 + k); c.fillRect(-1.5, -6, 3, 12); c.restore(); } } },
@@ -421,7 +428,7 @@ const AUTO = { map: 'village', x: 56.2 * T, y: 6.0 * T, heading: Math.PI, draw(c
     c.fillStyle = '#1a1a1a'; rr(c, -21, -36, 34, 22, 6); c.fillStyle = '#a8c8d8'; c.fillRect(10, -30, 6, 13);
     c.fillStyle = '#1c6a3a'; c.fillRect(-20, -8, 38, 3);
     if (o.passenger) { drawPerson(c, -6, -2, outfitFor(G.player), 'right', 0, false, G.speaking === 'arjun', true); drawPerson(c, 8, -2, LOOKS.jomon, 'right', 0, false, G.speaking === 'jomon', true); }
-    c.fillStyle = '#e8e2c0'; c.font = `600 5px Inter`; c.fillText('KL-05', -6, -7);
+    c.fillStyle = '#e8e2c0'; c.font = `600 5px Inter`; if (flip) { c.save(); c.scale(-1, 1); c.fillText('KL-05', -8, -7); c.restore(); } else c.fillText('KL-05', -6, -7);
   }
   c.restore(); } };
 const CANOE = { map: 'village', x: 62.9 * T, y: 25.4 * T, draw(c, o) { c.save(); c.translate(o.x, o.y); c.fillStyle = 'rgba(0,0,0,.2)'; ellipse(c, 2, 3, 8, 30); c.fillStyle = '#5a3a22'; c.beginPath(); c.moveTo(0, -32); c.quadraticCurveTo(11, 0, 0, 32); c.quadraticCurveTo(-11, 0, 0, -32); c.fill(); c.fillStyle = '#3a2414'; c.beginPath(); c.moveTo(0, -26); c.quadraticCurveTo(7, 0, 0, 26); c.quadraticCurveTo(-7, 0, 0, -26); c.fill(); if (o.rower) { drawPerson(c, 0, 8, LOOKS.kunjumon, 'down', 0, false, G.speaking === 'kunjumon', true); c.strokeStyle = '#8a6a3a'; c.lineWidth = 2; const a = Math.sin(G.t * 3) * 0.5; c.beginPath(); c.moveTo(-14 * Math.cos(a), -4); c.lineTo(14 * Math.cos(a), 6); c.stroke(); } c.restore(); } };
